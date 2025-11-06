@@ -23,31 +23,35 @@
 #include <string>
 #include <vector>
 #include <type_traits>
+#include <cmath>
 
 namespace esphome {
 namespace dometic_cfx_ble {
 
 static const char *const TAG = "dometic_cfx_ble";
 
-// Simple description of a protocol topic.
+// Sentinel for "no value" (INT16_DECIDEGREE_CELSIUS -32768 / 10)
+static constexpr float NO_VALUE = -3276.8f;
+
+// Topic description from the DDM mapping
 struct TopicInfo {
-  uint8_t param[4];       // 4-byte DDM key
-  const char *type;       // type hint string from your DDM table
+  uint8_t param[4];       // 4-byte key
+  const char *type;       // e.g. "INT16_DECIDEGREE_CELSIUS"
   const char *description;
 };
 
-// DDM action codes (update to match your bundle.js if needed)
+// DDM action codes (exactly as in test.py)
 enum : uint8_t {
-  ACTION_PUB   = 0x01,
-  ACTION_SUB   = 0x02,
-  ACTION_PING  = 0x03,
-  ACTION_HELLO = 0x04,
-  ACTION_ACK   = 0x05,
-  ACTION_NAK   = 0x06,
-  ACTION_NOP   = 0x07,
+  ACTION_PUB   = 0,
+  ACTION_SUB   = 1,
+  ACTION_PING  = 2,
+  ACTION_HELLO = 3,
+  ACTION_ACK   = 4,
+  ACTION_NAK   = 5,
+  ACTION_NOP   = 6,
 };
 
-// Full topic table lives in the .cpp
+// Full topic table is defined in the .cpp
 extern const std::map<std::string, TopicInfo> TOPICS;
 
 class DometicCfxBle : public Component {
@@ -78,12 +82,12 @@ class DometicCfxBle : public Component {
   void loop() override;
   void dump_config() override;
 
-  // Frame-level helpers used internally and by child entities
+  // Frame-level helpers (wire format)
   void send_pub(const std::string &topic, const std::vector<uint8_t> &value);
   void send_sub(const std::string &topic);
   void send_ping();
 
-  // High-level helpers so entities don’t call protected helpers directly
+  // Entity helpers so they don't poke internal helpers directly
   void send_switch(const std::string &topic, bool value);
   void send_number(const std::string &topic, float value);
 
@@ -109,13 +113,17 @@ class DometicCfxBle : public Component {
   void handle_notify_(const uint8_t *data, size_t len);
   void update_entity_(const std::string &topic, const std::vector<uint8_t> &value);
 
-  // Generic decoding helpers; the exact strings just need to match your DDM table.
+  // Typed decode helpers mirroring test.py
   float decode_to_float_(const std::vector<uint8_t> &bytes, const std::string &type_hint);
   bool decode_to_bool_(const std::vector<uint8_t> &bytes, const std::string &type_hint);
   std::string decode_to_string_(const std::vector<uint8_t> &bytes, const std::string &type_hint);
 
   std::vector<uint8_t> encode_from_bool_(bool value, const std::string &type_hint);
   std::vector<uint8_t> encode_from_float_(float value, const std::string &type_hint);
+
+  std::string get_english_desc_(const std::string &topic_key,
+                                const TopicInfo &info,
+                                const std::vector<uint8_t> &bytes);
 
   uint8_t mac_address_[6] = {0};
   uint8_t product_type_{0};
@@ -139,7 +147,7 @@ class DometicCfxBle : public Component {
   std::map<std::string, text_sensor::TextSensor *> text_sensors_;
 };
 
-// Thin wrappers around the hub. These just call back into DometicCfxBle.
+// Thin wrappers around the hub; they just call back in.
 
 class DometicCfxBleSensor : public sensor::Sensor, public PollingComponent {
  public:
