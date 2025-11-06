@@ -1,9 +1,10 @@
+# Corrected switch.py
 import esphome.codegen as cg
 import esphome.config_validation as cv
-from esphome.const import CONF_ID, CONF_DOMETIC_CFX_BLE_ID, CONF_TYPE, CONF_NAME
+from esphome.const import CONF_ID, CONF_TYPE, CONF_NAME
 from esphome.components import switch as esphome_switch
 
-from . import dometic_cfx_ble_ns, DometicCfxBle, TOPIC_TYPES, validate_topic_type
+from . import dometic_cfx_ble_ns, DometicCfxBle, CONF_DOMETIC_CFX_BLE_ID, TOPIC_TYPES, validate_topic_type
 
 DometicCfxBleSwitch = dometic_cfx_ble_ns.class_("DometicCfxBleSwitch", esphome_switch.Switch, cg.PollingComponent)
 
