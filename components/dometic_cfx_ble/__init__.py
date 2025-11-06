@@ -141,6 +141,3 @@ async def to_code(config):
     cg.add(var.set_mac_address(config[CONF_MAC_ADDRESS].as_hex))
     cg.add(var.set_product_type(config[CONF_PRODUCT_TYPE]))
 
-
-# Register platforms
-from . import sensor, binary_sensor, switch_, number, text_sensor
