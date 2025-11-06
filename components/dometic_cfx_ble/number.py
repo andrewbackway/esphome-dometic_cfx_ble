@@ -2,7 +2,7 @@
 import esphome.codegen as cg
 import esphome.config_validation as cv
 from esphome.const import CONF_ID, CONF_TYPE, CONF_NAME, CONF_MIN_VALUE, CONF_MAX_VALUE, CONF_STEP, CONF_UNIT_OF_MEASUREMENT
-from esphome.cpp_types import number as esphome_number
+from esphome.components import number as esphome_number
 
 from . import dometic_cfx_ble_ns, DometicCfxBle, CONF_DOMETIC_CFX_BLE_ID, TOPIC_TYPES, validate_topic_type
 
