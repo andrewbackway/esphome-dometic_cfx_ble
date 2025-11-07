@@ -684,4 +684,13 @@ void DometicCfxBleSwitch::write_state(bool state) {
 void DometicCfxBleNumber::control(float value) {
   if (parent_ == nullptr) {
     ESP_LOGW(TAG, "Number control without parent");
-    publish_sta_
+    publish_state(value);
+    return;
+  }
+
+  parent_->send_number(topic_, value);
+  publish_state(value);
+}
+
+}  // namespace dometic_cfx_ble
+}  // namespace esphome
