@@ -1,7 +1,7 @@
 esphome:
   name: esphome-web-cfx3
   friendly_name: ESPHome Dometic CFX3 WiFi
-  min_version: 2025.5.0
+  min_version: 2025.10.0
 
 esp32:
   board: esp32-s3-devkitc-1
@@ -10,12 +10,13 @@ esp32:
 
 external_components:
   source: github://andrewbackway/esphome-dometic_cfx_ble@main
-   refresh: 1s
 
 web_server:
   version: 3
 
-# Allow Over-The-Air updates
+logger:  
+  level: DEBUG
+
 ota:
 - platform: esphome
 
@@ -23,77 +24,92 @@ wifi:
   ssid: !secret wifi_ssid
   password: !secret wifi_password
 
+ble_client:
+  - mac_address: B0:B2:1C:44:9F:76  # Your CFX MAC
+    id: cfx_ble_client
+    auto_connect: true  
+
 dometic_cfx_ble:
   id: dometic_cfx_ble1
-  mac_address: "AA:BB:CC:DD:EE:FF"
+  ble_client_id: cfx_ble_client
   product_type: DZ  # or SZI, SZ
-
 sensor:
   - platform: dometic_cfx_ble
-    dometic_cfx_ble_id: id(dometic_cfx_ble1)
+    dometic_cfx_ble_id: dometic_cfx_ble1
     type: COMPARTMENT_0_MEASURED_TEMPERATURE
     name: "CFX Zone 1 Temp"
     unit_of_measurement: "°C"
+    icon: mdi:thermometer
   - platform: dometic_cfx_ble
-    dometic_cfx_ble_id: id(dometic_cfx_ble1)
+    dometic_cfx_ble_id: dometic_cfx_ble1
     type: COMPARTMENT_1_MEASURED_TEMPERATURE
     name: "CFX Zone 2 Temp"
     unit_of_measurement: "°C"
+    icon: mdi:thermometer
   - platform: dometic_cfx_ble
-    dometic_cfx_ble_id: id(dometic_cfx_ble1)
+    dometic_cfx_ble_id: dometic_cfx_ble1
     type: BATTERY_VOLTAGE_LEVEL
     name: "CFX Battery Voltage"
     unit_of_measurement: "V"
+    icon: mdi:car-battery
 
 switch:
   - platform: dometic_cfx_ble
-    dometic_cfx_ble_id: id(dometic_cfx_ble1)
+    dometic_cfx_ble_id: dometic_cfx_ble1
     type: COOLER_POWER
     name: "CFX Power"
+    icon: mdi:power
   - platform: dometic_cfx_ble
-    dometic_cfx_ble_id: id(dometic_cfx_ble1)
+    dometic_cfx_ble_id: dometic_cfx_ble1
     type: COMPARTMENT_0_POWER
     name: "CFX Zone 1 Power"
+    icon: mdi:snowflake
   - platform: dometic_cfx_ble
-    dometic_cfx_ble_id: id(dometic_cfx_ble1)
+    dometic_cfx_ble_id: dometic_cfx_ble1
     type: COMPARTMENT_1_POWER
     name: "CFX Zone 2 Power"
+    icon: mdi:snowflake
 
 number:
   - platform: dometic_cfx_ble
-    dometic_cfx_ble_id: id(dometic_cfx_ble1)
+    dometic_cfx_ble_id: dometic_cfx_ble1
     type: COMPARTMENT_0_SET_TEMPERATURE
     name: "CFX Zone 1 Set Temp"
     unit_of_measurement: "°C"
-    min_value: -20
+    min_value: -22
     max_value: 10
-    step: 0.1
+    step: 1
+    icon: mdi:thermometer-chevron-up
   - platform: dometic_cfx_ble
-    dometic_cfx_ble_id: id(dometic_cfx_ble1)
+    dometic_cfx_ble_id: dometic_cfx_ble1
     type: COMPARTMENT_1_SET_TEMPERATURE
     name: "CFX Zone 2 Set Temp"
     unit_of_measurement: "°C"
-    min_value: -20
+    min_value: -22
     max_value: 10
-    step: 0.1
+    step: 1
+    icon: mdi:thermometer-chevron-up
 
 binary_sensor:
   - platform: dometic_cfx_ble
-    dometic_cfx_ble_id: id(dometic_cfx_ble1)
+    dometic_cfx_ble_id: dometic_cfx_ble1
     type: DOOR_ALERT
     name: "CFX Door Alert"
+    icon: mdi:alarm-light
   - platform: dometic_cfx_ble
-    dometic_cfx_ble_id: id(dometic_cfx_ble1)
+    dometic_cfx_ble_id: dometic_cfx_ble1
     type: COMPARTMENT_0_DOOR_OPEN
-    name: "CFX Zone 1 Door Open"  
+    name: "CFX Zone 1 Door Open"
+    icon: mdi:door-open
   - platform: dometic_cfx_ble
-    dometic_cfx_ble_id: id(dometic_cfx_ble1)
+    dometic_cfx_ble_id: dometic_cfx_ble1
     type: COMPARTMENT_1_DOOR_OPEN
     name: "CFX Zone 2 Door Open"
-    
+    icon: mdi:door-open
 
 text_sensor:
   - platform: dometic_cfx_ble
-    dometic_cfx_ble_id: id(dometic_cfx_ble1)
+    dometic_cfx_ble_id: dometic_cfx_ble1
     type: DEVICE_NAME
     name: "CFX Device Name"
+    icon: mdi:label
