@@ -5,7 +5,7 @@
 #include "esphome/core/log.h"
 #include "esphome/core/entity_base.h"
 
-#include "esphome/components/ble_client/ble_client.h"  // For BLEClientNode
+#include "esphome/components/ble_client/ble_client.h"  // BLEClientNode
 
 #include "esphome/components/sensor/sensor.h"
 #include "esphome/components/binary_sensor/binary_sensor.h"
@@ -87,7 +87,8 @@ class DometicCfxBle : public Component, public ble_client::BLEClientNode {
   void send_switch(const std::string &topic, bool value);
   void send_number(const std::string &topic, float value);
 
-  void gattc_event_handler(esp_gattc_cb_event_t event, esp_gatt_if_t gattc_if, esp_ble_gattc_cb_param_t *param) override;
+  void gattc_event_handler(esp_gattc_cb_event_t event, esp_gatt_if_t gattc_if,
+                           esp_ble_gattc_cb_param_t *param) override;
 
   bool is_connected() const { return connected_; }
 
@@ -109,14 +110,10 @@ class DometicCfxBle : public Component, public ble_client::BLEClientNode {
 
   uint8_t product_type_{0};
 
-  espbt::ESPBTUUID service_uuid_;
-  espbt::ESPBTUUID write_char_uuid_;
-  espbt::ESPBTUUID notify_char_uuid_;
-
   uint16_t write_handle_{0};
   uint16_t notify_handle_{0};
-
   bool connected_{false};
+  bool notify_registered_{false};
 
   uint32_t last_activity_ms_{0};
 
@@ -186,7 +183,7 @@ class DometicCfxBleTextSensor : public text_sensor::TextSensor, public PollingCo
   void update() override {}  // notifications only
 
  protected:
-  DometicCfxBle *parent_{nullptr};  
+  DometicCfxBle *parent_{nullptr};
   std::string topic_;
 };
 

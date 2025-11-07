@@ -1,12 +1,15 @@
 #include "dometic_cfx_ble.h"
 
-#include <esp_err.h>
-#include <esp_bt.h>
+#include "esphome/core/log.h"
+
+extern "C" {
+#include "esp_gattc_api.h"
+}
 
 namespace esphome {
 namespace dometic_cfx_ble {
 
-// UUIDs (same as SERVICE_UUID / WRITE_UUID / NOTIFY_UUID from test.py)
+// UUIDs (SERVICE / WRITE / NOTIFY from bundle.js)
 static const uint8_t SERVICE_UUID_128[16] = {
     // LSB -> MSB of 537a0300-0995-481f-926c-1604e23fd515
     0x15, 0xd5, 0x3f, 0xe2, 0x04, 0x16, 0x6c, 0x92,
@@ -25,7 +28,6 @@ static const uint8_t NOTIFY_CHAR_UUID_128[16] = {
     0x1f, 0x48, 0x95, 0x09, 0x02, 0x03, 0x7a, 0x53,
 };
 
-// Battery / power strings from test.py
 static const char *battery_level_str(int v) {
   switch (v) {
     case 0: return "Low";
@@ -42,6 +44,11 @@ static const char *power_source_str(int v) {
     case 2: return "Solar";
     default: return nullptr;
   }
+}
+
+static bool uuid128_equal(const esp_bt_uuid_t &uuid, const uint8_t (&cmp)[16]) {
+  if (uuid.len != ESP_UUID_LEN_128) return false;
+  return std::memcmp(uuid.uuid.uuid128, cmp, 16) == 0;
 }
 
 // -------- FULL TOPIC TABLE (mirrors TOPICS in test.py) --------
@@ -113,46 +120,39 @@ const std::map<std::string, TopicInfo> TOPICS = {
     {"DC_CURRENT_HISTORY_WEEK", {{0, 66, 3, 1}, "HISTORY_DATA_ARRAY", "DC current week history"}},
 };
 
-DometicCfxBle *DometicCfxBle::instance_ = nullptr;
-
 // ----------------- Basic setup / loop ---------------------------------------
 
-void DometicCfxBle::set_mac_address(uint64_t mac) {
-  // config[CONF_MAC_ADDRESS].as_hex gives e.g. 0xB0B21C449F76
-  // We want bytes B0:B2:1C:44:9F:76 in mac_address_[0..5]
-  for (int i = 0; i < 6; i++) {
-    this->mac_address_[5 - i] = static_cast<uint8_t>((mac >> (8 * i)) & 0xFF);
+void DometicCfxBle::setup() {
+  ESP_LOGCONFIG(TAG, "Setting up Dometic CFX BLE...");
+  ESP_LOGCONFIG(TAG, "  Product type: %d", product_type_);
+}
+
+void DometicCfxBle::loop() {
+  if (!this->connected_ || this->write_handle_ == 0 || this->send_queue_.empty())
+    return;
+
+  auto frame = this->send_queue_.front();
+  this->send_queue_.pop();
+
+  auto *client = this->parent();
+  if (client == nullptr) {
+    ESP_LOGW(TAG, "BLE client not set, cannot write");
+    return;
   }
 
-  ESP_LOGI(TAG, "Configured MAC: %02X:%02X:%02X:%02X:%02X:%02X",
-           mac_address_[0], mac_address_[1], mac_address_[2],
-           mac_address_[3], mac_address_[4], mac_address_[5]);
-}
-
-void DometicCfxBle::setup() override {
-  ESP_LOGCONFIG(TAG, "Setting up Dometic CFX BLE...");
-  ESP_LOGCONFIG(TAG, "Product type: %d", product_type_);
-
-  this->parent()->set_enabled(true);  // Enable the node for connection
-}
-id DometicCfxBle::loop() override {
-  if (!this->is_connected() || send_queue_.empty()) return;
-
-  auto frame = send_queue_.front();
-  send_queue_.pop();
-
-  esp_err_t err = this->parent()->write_characteristic(write_handle_, frame.data(), frame.size(), true);  // true for with-response
+  esp_err_t err = client->write_characteristic(this->write_handle_, frame.data(), frame.size(), true);
   if (err != ESP_OK) {
     ESP_LOGE(TAG, "Write failed: %s", esp_err_to_name(err));
-    // Optional: Push back to queue for retry
+    // If you want, push back for retry:
+    // this->send_queue_.push(std::move(frame));
   } else {
-    ESP_LOGD(TAG, "Sent frame of size %d", frame.size());
+    ESP_LOGD(TAG, "Sent frame of size %d", static_cast<int>(frame.size()));
   }
 
-  last_activity_ms_ = millis();
+  this->last_activity_ms_ = millis();
 }
 
-void DometicCfxBle::dump_config() override {
+void DometicCfxBle::dump_config() {
   ESP_LOGCONFIG(TAG, "Dometic CFX BLE:");
   ESP_LOGCONFIG(TAG, "  Product type: %d", product_type_);
 }
@@ -173,7 +173,7 @@ void DometicCfxBle::send_pub(const std::string &topic, const std::vector<uint8_t
   packet.insert(packet.end(), info.param, info.param + 4);
   packet.insert(packet.end(), value.begin(), value.end());
 
-  send_queue_.push(std::move(packet));
+  this->send_queue_.push(std::move(packet));
 }
 
 void DometicCfxBle::send_sub(const std::string &topic) {
@@ -189,13 +189,13 @@ void DometicCfxBle::send_sub(const std::string &topic) {
   packet.push_back(ACTION_SUB);
   packet.insert(packet.end(), info.param, info.param + 4);
 
-  send_queue_.push(std::move(packet));
+  this->send_queue_.push(std::move(packet));
 }
 
 void DometicCfxBle::send_ping() {
   std::vector<uint8_t> packet(1);
   packet[0] = ACTION_PING;
-  send_queue_.push(std::move(packet));
+  this->send_queue_.push(std::move(packet));
 }
 
 void DometicCfxBle::send_switch(const std::string &topic, bool value) {
@@ -220,74 +220,108 @@ void DometicCfxBle::send_number(const std::string &topic, float value) {
 
 // ----------------- GAP / GATTC plumbing -------------------------------------
 
-void DometicCfxBle::gattc_event_handler(esp_gattc_cb_event_t event, esp_gatt_if_t gattc_if, esp_ble_gattc_cb_param_t *param) override {
+void DometicCfxBle::gattc_event_handler(esp_gattc_cb_event_t event, esp_gatt_if_t gattc_if,
+                                        esp_ble_gattc_cb_param_t *param) {
   switch (event) {
-    case ESP_GATTC_CONNECT_EVT:
-      ESP_LOGI(TAG, "Connected to Dometic CFX device");
-      connected_ = true;
-      last_activity_ms_ = millis();
-      break;
-
-    case ESP_GATTC_OPEN_EVT:
+    case ESP_GATTC_OPEN_EVT: {
       if (param->open.status == ESP_GATT_OK) {
-        ESP_LOGI(TAG, "GATT open successful, starting service discovery");
-        this->parent()->start_service_discovery();
+        ESP_LOGI(TAG, "GATT open successful, conn_id=%d", param->open.conn_id);
+        this->connected_ = true;
+        this->last_activity_ms_ = millis();
+
+        // Discover write characteristic
+        esp_bt_uuid_t write_uuid{};
+        write_uuid.len = ESP_UUID_LEN_128;
+        std::memcpy(write_uuid.uuid.uuid128, WRITE_CHAR_UUID_128, sizeof(WRITE_CHAR_UUID_128));
+        esp_err_t err = esp_ble_gattc_get_char_by_uuid(
+            gattc_if, param->open.conn_id, 1, 0xFFFF, &write_uuid);
+        if (err != ESP_OK) {
+          ESP_LOGE(TAG, "esp_ble_gattc_get_char_by_uuid (write) failed: %s", esp_err_to_name(err));
+        }
+
+        // Discover notify characteristic
+        esp_bt_uuid_t notify_uuid{};
+        notify_uuid.len = ESP_UUID_LEN_128;
+        std::memcpy(notify_uuid.uuid.uuid128, NOTIFY_CHAR_UUID_128, sizeof(NOTIFY_CHAR_UUID_128));
+        err = esp_ble_gattc_get_char_by_uuid(
+            gattc_if, param->open.conn_id, 1, 0xFFFF, &notify_uuid);
+        if (err != ESP_OK) {
+          ESP_LOGE(TAG, "esp_ble_gattc_get_char_by_uuid (notify) failed: %s", esp_err_to_name(err));
+        }
       } else {
         ESP_LOGE(TAG, "GATT open failed: status %d", param->open.status);
       }
       break;
+    }
 
-    case ESP_GATTC_SEARCH_CMPL_EVT:
-      ESP_LOGI(TAG, "Service discovery complete");
-
-      auto *write_char = this->parent()->get_characteristic(service_uuid_, write_char_uuid_);
-      if (write_char == nullptr) {
-        ESP_LOGE(TAG, "Write characteristic not found");
-        return;
+    case ESP_GATTC_GET_CHAR_EVT: {
+      if (param->get_char.status != ESP_GATT_OK) {
+        ESP_LOGW(TAG, "GET_CHAR status=%d", param->get_char.status);
+        break;
       }
-      write_handle_ = write_char->handle;
-      ESP_LOGD(TAG, "Write handle: 0x%04X", write_handle_);
 
-      auto *notify_char = this->parent()->get_characteristic(service_uuid_, notify_char_uuid_);
-      if (notify_char == nullptr) {
-        ESP_LOGE(TAG, "Notify characteristic not found");
-        return;
+      const esp_bt_uuid_t &uuid = param->get_char.char_id.uuid;
+      if (uuid128_equal(uuid, WRITE_CHAR_UUID_128)) {
+        this->write_handle_ = param->get_char.char_handle;
+        ESP_LOGD(TAG, "Found write characteristic handle=0x%04X", this->write_handle_);
+      } else if (uuid128_equal(uuid, NOTIFY_CHAR_UUID_128)) {
+        this->notify_handle_ = param->get_char.char_handle;
+        ESP_LOGD(TAG, "Found notify characteristic handle=0x%04X", this->notify_handle_);
+
+        if (!this->notify_registered_) {
+          esp_err_t err = esp_ble_gattc_register_for_notify(
+              gattc_if, param->get_char.remote_bda, this->notify_handle_);
+          if (err != ESP_OK) {
+            ESP_LOGE(TAG, "Failed to register for notify: %s", esp_err_to_name(err));
+          } else {
+            this->notify_registered_ = true;
+          }
+        }
       }
-      notify_handle_ = notify_char->handle;
-      ESP_LOGD(TAG, "Notify handle: 0x%04X", notify_handle_);
+      break;
+    }
 
-      // Enable notifications
-      esp_err_t err = this->parent()->enable_notifications(notify_handle_);
-      if (err != ESP_OK) {
-        ESP_LOGE(TAG, "Failed to enable notifications: %s", esp_err_to_name(err));
+    case ESP_GATTC_REG_FOR_NOTIFY_EVT: {
+      if (param->reg_for_notify.status == ESP_GATT_OK) {
+        ESP_LOGI(TAG, "Notifications enabled");
+        // Initial DDM handshake: ping + subscribe all for product type
+        this->send_ping();
+
+        std::string sub_topic;
+        switch (this->product_type_) {
+          case 1: sub_topic = "SUBSCRIBE_APP_SZ"; break;
+          case 2: sub_topic = "SUBSCRIBE_APP_SZI"; break;
+          case 3: sub_topic = "SUBSCRIBE_APP_DZ"; break;
+          default:
+            ESP_LOGE(TAG, "Invalid product type %u", this->product_type_);
+            break;
+        }
+        if (!sub_topic.empty())
+          this->send_sub(sub_topic);
       } else {
-        ESP_LOGD(TAG, "Notifications enabled");
+        ESP_LOGE(TAG, "REG_FOR_NOTIFY failed: %d", param->reg_for_notify.status);
       }
-
-      // Send initial commands
-      send_ping();
-      std::string sub_topic;
-      switch (product_type_) {
-        case 1: sub_topic = "SUBSCRIBE_APP_SZ"; break;
-        case 2: sub_topic = "SUBSCRIBE_APP_SZI"; break;
-        case 3: sub_topic = "SUBSCRIBE_APP_DZ"; break;
-        default: ESP_LOGE(TAG, "Invalid product type"); return;
-      }
-      send_sub(sub_topic);
       break;
+    }
 
-    case ESP_GATTC_NOTIFY_EVT:
-      if (param->notify.handle != notify_handle_) break;
-      handle_notify_(param->notify.value, param->notify.value_len);
-      last_activity_ms_ = millis();
+    case ESP_GATTC_NOTIFY_EVT: {
+      if (param->notify.handle != this->notify_handle_)
+        break;
+      this->handle_notify_(param->notify.value, param->notify.value_len);
+      this->last_activity_ms_ = millis();
       break;
+    }
 
-    case ESP_GATTC_DISCONNECT_EVT:
-      connected_ = false;
-      write_handle_ = 0;
-      notify_handle_ = 0;
+    case ESP_GATTC_DISCONNECT_EVT: {
+      this->connected_ = false;
+      this->write_handle_ = 0;
+      this->notify_handle_ = 0;
+      this->notify_registered_ = false;
+      while (!this->send_queue_.empty())
+        this->send_queue_.pop();
       ESP_LOGI(TAG, "Disconnected from device");
       break;
+    }
 
     default:
       break;
@@ -297,43 +331,44 @@ void DometicCfxBle::gattc_event_handler(esp_gattc_cb_event_t event, esp_gatt_if_
 // ----------------- DDM frame handling ---------------------------------------
 
 void DometicCfxBle::handle_notify_(const uint8_t *data, size_t len) {
-  if (data == nullptr || len < 1) return;
+  if (data == nullptr || len < 1)
+    return;
 
   uint8_t action = data[0];
   ESP_LOGVV(TAG, "Notify frame: action=0x%02X len=%u", action, (unsigned) len);
 
   // ACK / NAK for our queued frames
   if (action == ACTION_ACK || action == ACTION_NAK) {
-    if (!send_queue_.empty()) {
-      send_queue_.pop();
+    if (!this->send_queue_.empty()) {
+      this->send_queue_.pop();
     }
     if (action == ACTION_NAK) {
       ESP_LOGW(TAG, "Fridge returned NAK");
     }
-    last_activity_ms_ = millis();
+    this->last_activity_ms_ = millis();
     return;
   }
 
   // Always ACK incoming PUB/PING/SUB/NOP/HELLO just like test.py
   auto send_ack = [&]() {
-    if (write_handle_ == 0) return;
-    uint8_t ack = ACTION_ACK;
-    esp_ble_gattc_write_char(
-        gattc_if_, conn_id_, write_handle_, 1, &ack,
-        ESP_GATT_WRITE_TYPE_NO_RSP, ESP_GATT_AUTH_REQ_NONE);
+    if (this->write_handle_ == 0)
+      return;
+    std::vector<uint8_t> packet(1);
+    packet[0] = ACTION_ACK;
+    this->send_queue_.push(std::move(packet));
   };
 
   if (action == ACTION_PING || action == ACTION_SUB ||
       action == ACTION_NOP || action == ACTION_HELLO) {
     ESP_LOGV(TAG, "DDM control frame action=0x%02X", action);
     send_ack();
-    last_activity_ms_ = millis();
+    this->last_activity_ms_ = millis();
     return;
   }
 
   if (action != ACTION_PUB) {
     ESP_LOGV(TAG, "Unhandled DDM action 0x%02X", action);
-    last_activity_ms_ = millis();
+    this->last_activity_ms_ = millis();
     return;
   }
 
@@ -372,7 +407,7 @@ void DometicCfxBle::handle_notify_(const uint8_t *data, size_t len) {
   if (topic_info == nullptr) {
     ESP_LOGV(TAG, "Unknown DDM param key 0x%08X (len=%u)", (unsigned) key, (unsigned) len);
     send_ack();
-    last_activity_ms_ = millis();
+    this->last_activity_ms_ = millis();
     return;
   }
 
@@ -389,7 +424,7 @@ void DometicCfxBle::handle_notify_(const uint8_t *data, size_t len) {
   }
 
   send_ack();
-  last_activity_ms_ = millis();
+  this->last_activity_ms_ = millis();
 }
 
 void DometicCfxBle::update_entity_(const std::string &topic, const std::vector<uint8_t> &value) {
@@ -649,13 +684,4 @@ void DometicCfxBleSwitch::write_state(bool state) {
 void DometicCfxBleNumber::control(float value) {
   if (parent_ == nullptr) {
     ESP_LOGW(TAG, "Number control without parent");
-    publish_state(value);
-    return;
-  }
-
-  parent_->send_number(topic_, value);
-  publish_state(value);
-}
-
-}  // namespace dometic_cfx_ble
-}  // namespace esphome
+    publish_sta_
