@@ -25,6 +25,9 @@
 
 ## Installation
 
+- Find your Dometic's BLE MAC Address by pairing your phone with the cooler. On the
+  Device Details page the device's Bluetooth address should be listed.
+
 In your ESPHome YAML:
 
 ```yaml
