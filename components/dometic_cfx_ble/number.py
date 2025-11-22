@@ -39,16 +39,26 @@ async def to_code(config):
     var = cg.new_Pvariable(config[CONF_ID])
     await cg.register_component(var, config)
 
+    parent = await cg.get_variable(config[CONF_DOMETIC_CFX_BLE_ID])
+
+    min_value = config[CONF_MIN_VALUE]
+    max_value = config[CONF_MAX_VALUE]
+
+    if config[CONF_TYPE] in ["COMPARTMENT_0_SET_TEMPERATURE", "COMPARTMENT_1_SET_TEMPERATURE"]:
+        if parent.config[CONF_TEMPERATURE_UNIT] == "F":
+            config[CONF_UNIT_OF_MEASUREMENT] = "°F"
+        else:
+            config[CONF_UNIT_OF_MEASUREMENT] = "°C"
+
     # pass range/step into the number traits
     await esphome_number.register_number(
         var,
         config,
-        min_value=config[CONF_MIN_VALUE],
-        max_value=config[CONF_MAX_VALUE],
+        min_value=min_value,
+        max_value=max_value,
         step=config[CONF_STEP],
     )
 
-    parent = await cg.get_variable(config[CONF_DOMETIC_CFX_BLE_ID])
     cg.add(parent.add_entity(config[CONF_TYPE], var))
     cg.add(var.set_parent(parent))
     cg.add(var.set_topic(config[CONF_TYPE]))
