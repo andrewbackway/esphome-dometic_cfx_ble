@@ -36,18 +36,17 @@ dometic_cfx_ble:
   ble_client_id: cfx_ble_client
   product_type: DZ  # or SZI, SZ
   temperature_unit: C # Optional, defaults to Celsius. Set to F for Fahrenheit.
+
 sensor:
   - platform: dometic_cfx_ble
     dometic_cfx_ble_id: dometic_cfx_ble1
     type: COMPARTMENT_0_MEASURED_TEMPERATURE
     name: "CFX Zone 1 Temp"
-    unit_of_measurement: "°C"
     icon: mdi:thermometer
   - platform: dometic_cfx_ble
     dometic_cfx_ble_id: dometic_cfx_ble1
     type: COMPARTMENT_1_MEASURED_TEMPERATURE
     name: "CFX Zone 2 Temp"
-    unit_of_measurement: "°C"
     icon: mdi:thermometer
   - platform: dometic_cfx_ble
     dometic_cfx_ble_id: dometic_cfx_ble1
@@ -78,7 +77,6 @@ number:
     dometic_cfx_ble_id: dometic_cfx_ble1
     type: COMPARTMENT_0_SET_TEMPERATURE
     name: "CFX Zone 1 Set Temp"
-    unit_of_measurement: "°C"
     min_value: -22
     max_value: 10
     step: 1
@@ -87,7 +85,6 @@ number:
     dometic_cfx_ble_id: dometic_cfx_ble1
     type: COMPARTMENT_1_SET_TEMPERATURE
     name: "CFX Zone 2 Set Temp"
-    unit_of_measurement: "°C"
     min_value: -22
     max_value: 10
     step: 1

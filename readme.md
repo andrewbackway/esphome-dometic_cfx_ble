@@ -70,7 +70,6 @@ sensor:
     dometic_cfx_ble_id: dometic_cfx_ble1
     type: COMPARTMENT_0_MEASURED_TEMPERATURE
     name: "CFX Zone 1 Temp"
-    unit_of_measurement: "°C"
 
 switch:
   - platform: dometic_cfx_ble
@@ -83,7 +82,6 @@ number:
     dometic_cfx_ble_id: dometic_cfx_ble1
     type: COMPARTMENT_0_SET_TEMPERATURE
     name: "CFX Zone 1 Set Temp"
-    unit_of_measurement: "°C"
     min_value: -22
     max_value: 10
     step: 1
