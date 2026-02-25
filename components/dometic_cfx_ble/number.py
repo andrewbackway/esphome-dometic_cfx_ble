@@ -17,6 +17,7 @@ from . import (
     CONF_DOMETIC_CFX_BLE_ID,
     TOPIC_TYPES,
     validate_topic_type,
+    CONF_TEMPERATURE_UNIT
 )
 
 DometicCfxBleNumber = dometic_cfx_ble_ns.class_(
