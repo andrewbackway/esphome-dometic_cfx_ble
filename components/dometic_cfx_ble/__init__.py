@@ -25,6 +25,7 @@ DometicCfxBle = dometic_cfx_ble_ns.class_("DometicCfxBle", cg.Component, ble_cli
 
 CONF_PRODUCT_TYPE = "product_type"
 CONF_DOMETIC_CFX_BLE_ID = "dometic_cfx_ble_id"
+CONF_TEMPERATURE_UNIT = "temperature_unit"
 
 PRODUCT_TYPES = cv.enum(
     {
@@ -119,6 +120,7 @@ CONFIG_SCHEMA = cv.Schema(
         cv.GenerateID(CONF_ID): cv.declare_id(DometicCfxBle),
         cv.Required(CONF_BLE_CLIENT_ID): cv.use_id(type("esphome.components.ble_client.ble_client.BLEClient")),
         cv.Required(CONF_PRODUCT_TYPE): PRODUCT_TYPES,
+        cv.Optional(CONF_TEMPERATURE_UNIT, default="C"): cv.enum({"C": "C", "F": "F"}, upper=True),
     }
 ).extend(cv.COMPONENT_SCHEMA)
 
@@ -157,4 +159,5 @@ async def to_code(config):
     ble_client_var = await cg.get_variable(config[CONF_BLE_CLIENT_ID])
     cg.add(ble_client_var.register_ble_node(var))
     cg.add(var.set_product_type(config[CONF_PRODUCT_TYPE]))
+    cg.add(var.set_temperature_unit(config[CONF_TEMPERATURE_UNIT]))
 

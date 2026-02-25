@@ -36,75 +36,151 @@ struct TopicInfo {
 extern const std::map<std::string, TopicInfo> TOPICS;
 
 class DometicCfxBle : public Component, public ble_client::BLEClientNode {
+
  public:
+
   float get_setup_priority() const override { return setup_priority::BLUETOOTH; }
+
+
 
   void set_product_type(uint8_t type) { this->product_type_ = type; }
 
+  void set_temperature_unit(const std::string &unit) { this->temperature_unit_ = unit; }
+
+
+
   template<typename T>
+
   void add_entity(const std::string &topic, T *entity) {
+
     if constexpr (std::is_base_of<sensor::Sensor, T>::value) {
+
       sensors_[topic] = entity;
+
     } else if constexpr (std::is_base_of<binary_sensor::BinarySensor, T>::value) {
+
       binary_sensors_[topic] = entity;
+
     } else if constexpr (std::is_base_of<switch_::Switch, T>::value) {
+
       switches_[topic] = entity;
+
     } else if constexpr (std::is_base_of<number::Number, T>::value) {
+
       numbers_[topic] = entity;
+
     } else if constexpr (std::is_base_of<text_sensor::TextSensor, T>::value) {
+
       text_sensors_[topic] = entity;
+
     } else {
+
       ESP_LOGW(TAG, "Unknown entity type for topic %s", topic.c_str());
+
     }
+
   }
 
+
+
   void setup() override;
+
   void loop() override;
+
   void dump_config() override;
 
+
+
   void send_pub(const std::string &topic, const std::vector<uint8_t> &value);
+
   void send_sub(const std::string &topic);
+
   void send_ping();
 
+
+
   void send_switch(const std::string &topic, bool value);
+
   void send_number(const std::string &topic, float value);
 
+
+
   void gattc_event_handler(esp_gattc_cb_event_t event, esp_gatt_if_t gattc_if,
+
                            esp_ble_gattc_cb_param_t *param) override;
+
+
 
   bool is_connected() const { return connected_; }
 
+
+
  protected:
+
   void handle_notify_(const uint8_t *data, uint16_t length);
+
   void update_entity_(const std::string &topic, const std::vector<uint8_t> &value);
 
+
+
   float decode_to_float_(const std::vector<uint8_t> &bytes, const std::string &type_hint);
+
   bool decode_to_bool_(const std::vector<uint8_t> &bytes, const std::string &type_hint);
+
   std::string decode_to_string_(const std::vector<uint8_t> &bytes, const std::string &type_hint);
 
+
+
   std::vector<uint8_t> encode_from_bool_(bool value, const std::string &type_hint);
+
   std::vector<uint8_t> encode_from_float_(float value, const std::string &type_hint);
 
+
+
   std::string get_english_desc_(const std::string &topic_key,
+
                                 const TopicInfo &info,
+
                                 const std::vector<uint8_t> &bytes);
+
+
 
   uint8_t product_type_{0};
 
+  std::string temperature_unit_{"C"};
+
+
+
   uint16_t write_handle_{0};
+
   uint16_t notify_handle_{0};
+
   bool connected_{false};
+
   bool notify_registered_{false};
+
+
 
   uint32_t last_activity_ms_{0};
 
+
+
   std::queue<std::vector<uint8_t>> send_queue_;
 
+
+
   std::map<std::string, sensor::Sensor *> sensors_;
+
   std::map<std::string, binary_sensor::BinarySensor *> binary_sensors_;
+
+  
+
   std::map<std::string, switch_::Switch *> switches_;
+
   std::map<std::string, number::Number *> numbers_;
+
   std::map<std::string, text_sensor::TextSensor *> text_sensors_;
+
 };
 
 class DometicCfxBleSensor : public sensor::Sensor, public PollingComponent {

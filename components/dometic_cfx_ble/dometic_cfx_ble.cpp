@@ -150,6 +150,7 @@ void DometicCfxBle::loop() {
 void DometicCfxBle::dump_config() {
   ESP_LOGCONFIG(TAG, "Dometic CFX BLE:");
   ESP_LOGCONFIG(TAG, "  Product type: %d", this->product_type_);
+  ESP_LOGCONFIG(TAG, "  Temperature unit: %s", this->temperature_unit_.c_str());
 }
 
 // ----------------- Frame helpers --------------------------------------------
@@ -295,6 +296,10 @@ void DometicCfxBle::gattc_event_handler(esp_gattc_cb_event_t event,
         }
         if (!sub_topic.empty())
           this->send_sub(sub_topic);
+        
+        uint8_t unit_value = (this->temperature_unit_ == "F") ? 1 : 0;
+        this->send_pub("PRESENTED_TEMPERATURE_UNIT", {unit_value});
+
       } else {
         ESP_LOGW(TAG, "REG_FOR_NOTIFY failed: %d", param->reg_for_notify.status);
       }
@@ -456,7 +461,11 @@ float DometicCfxBle::decode_to_float_(const std::vector<uint8_t> &bytes, const s
   if (type_hint == "INT16_DECIDEGREE_CELSIUS") {
     if (bytes.size() < 2) return NAN;
     int16_t raw = static_cast<int16_t>(bytes[0] | (static_cast<int16_t>(bytes[1]) << 8));
-    return static_cast<float>(raw) / 10.0f;
+    float celsius = static_cast<float>(raw) / 10.0f;
+    if (this->temperature_unit_ == "F") {
+      return (celsius * 9.0 / 5.0) + 32.0;
+    }
+    return celsius;
   }
 
   if (type_hint == "INT16_DECICURRENT_VOLT") {
@@ -511,7 +520,11 @@ std::vector<uint8_t> DometicCfxBle::encode_from_float_(float value, const std::s
   std::vector<uint8_t> out;
 
   if (type_hint == "INT16_DECIDEGREE_CELSIUS") {
-    int16_t deci = static_cast<int16_t>(std::lround(value * 10.0f));
+    float celsius = value;
+    if (this->temperature_unit_ == "F") {
+        celsius = (value - 32.0) * 5.0 / 9.0;
+    }
+    int16_t deci = static_cast<int16_t>(std::lround(celsius * 10.0f));
     out.push_back(static_cast<uint8_t>(deci & 0xFF));
     out.push_back(static_cast<uint8_t>((deci >> 8) & 0xFF));
     return out;
@@ -550,7 +563,7 @@ std::string DometicCfxBle::get_english_desc_(const std::string &topic_key,
     if (v == NO_VALUE)
       return desc + " is unavailable";
     char buf[64];
-    snprintf(buf, sizeof(buf), "%s is %.1f°C", desc.c_str(), v);
+    snprintf(buf, sizeof(buf), "%s is %.1f°%s", desc.c_str(), v, this->temperature_unit_.c_str());
     return std::string(buf);
   }
 
@@ -600,7 +613,7 @@ std::string DometicCfxBle::get_english_desc_(const std::string &topic_key,
     float min_v = decode_to_float_(b0, "INT16_DECIDEGREE_CELSIUS");
     float max_v = decode_to_float_(b1, "INT16_DECIDEGREE_CELSIUS");
     char buf[96];
-    snprintf(buf, sizeof(buf), "%s is %.1f to %.1f°C", desc.c_str(), min_v, max_v);
+    snprintf(buf, sizeof(buf), "%s is %.1f to %.1f°%s", desc.c_str(), min_v, max_v, this->temperature_unit_.c_str());
     return std::string(buf);
   }
 
@@ -612,7 +625,7 @@ std::string DometicCfxBle::get_english_desc_(const std::string &topic_key,
       std::vector<uint8_t> b(bytes.begin() + i * 2, bytes.begin() + i * 2 + 2);
       float t = decode_to_float_(b, "INT16_DECIDEGREE_CELSIUS");
       if (i != 0) line += ", ";
-      snprintf(buf, sizeof(buf), "%.1f°C", t);
+      snprintf(buf, sizeof(buf), "%.1f°%s", t, this->temperature_unit_.c_str());
       line += buf;
     }
     uint8_t ts = bytes[14];
@@ -638,6 +651,7 @@ std::string DometicCfxBle::get_english_desc_(const std::string &topic_key,
 
   return "";
 }
+
 
 // ----------------- Wrapper entity methods -----------------------------------
 
