@@ -49,20 +49,13 @@ class DometicCfxBle : public Component, public ble_client::BLEClientNode {
   const std::string &get_temperature_unit() const { return this->temperature_unit_; }
 
   void apply_temperature_units() {
-    std::string unit_str = (this->temperature_unit_ == "F") ? "°F" : "°C";
+    const char *unit_str = (this->temperature_unit_ == "F") ? "°F" : "°C";
     // Apply unit to measured temperature sensors
     if (this->sensors_.count("COMPARTMENT_0_MEASURED_TEMPERATURE")) {
       this->sensors_["COMPARTMENT_0_MEASURED_TEMPERATURE"]->set_unit_of_measurement(unit_str);
     }
     if (this->sensors_.count("COMPARTMENT_1_MEASURED_TEMPERATURE")) {
       this->sensors_["COMPARTMENT_1_MEASURED_TEMPERATURE"]->set_unit_of_measurement(unit_str);
-    }
-    // Apply unit to set temperature numbers
-    if (this->numbers_.count("COMPARTMENT_0_SET_TEMPERATURE")) {
-      this->numbers_["COMPARTMENT_0_SET_TEMPERATURE"]->set_unit_of_measurement(unit_str);
-    }
-    if (this->numbers_.count("COMPARTMENT_1_SET_TEMPERATURE")) {
-      this->numbers_["COMPARTMENT_1_SET_TEMPERATURE"]->set_unit_of_measurement(unit_str);
     }
   }
 
