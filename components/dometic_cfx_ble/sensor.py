@@ -6,14 +6,15 @@ from esphome.const import (
     CONF_TYPE,
     CONF_NAME,
     CONF_UNIT_OF_MEASUREMENT,
-    CONF_ACCURACY_DECIMALS,
+    CONF_ACCURACY_DECIMALS
 )
 
 from . import (
     dometic_cfx_ble_ns,
     DometicCfxBle,
     CONF_DOMETIC_CFX_BLE_ID,
-    validate_topic_type
+    validate_topic_type,
+    CONF_TEMPERATURE_UNIT
 )
 
 
