@@ -32,14 +32,7 @@ CONFIG_SCHEMA = esphome_sensor.sensor_schema(
 async def to_code(config):
     var = cg.new_Pvariable(config[CONF_ID])
     await cg.register_component(var, config)
+    await esphome_sensor.register_sensor(var, config)
 
     parent = await cg.get_variable(config[CONF_DOMETIC_CFX_BLE_ID])
-    
-    if config[CONF_TYPE] in ["COMPARTMENT_0_MEASURED_TEMPERATURE", "COMPARTMENT_1_MEASURED_TEMPERATURE"]:
-        if parent.config[CONF_TEMPERATURE_UNIT] == "F":
-            config[CONF_UNIT_OF_MEASUREMENT] = "°F"
-        else:
-            config[CONF_UNIT_OF_MEASUREMENT] = "°C"
-
-    await esphome_sensor.register_sensor(var, config)
     cg.add(parent.add_entity(config[CONF_TYPE], var))

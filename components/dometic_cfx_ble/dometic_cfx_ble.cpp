@@ -110,6 +110,8 @@ const std::map<std::string, TopicInfo> TOPICS = {
 void DometicCfxBle::setup() {
   ESP_LOGCONFIG(TAG, "Setting up Dometic CFX BLE...");
   ESP_LOGCONFIG(TAG, "  Product type: %d", this->product_type_);
+  ESP_LOGCONFIG(TAG, "  Temperature unit: %s", this->temperature_unit_.c_str());
+  this->apply_temperature_units();
 }
 
 void DometicCfxBle::loop() {

@@ -33,10 +33,7 @@ In your ESPHome YAML:
 
 ```yaml
 external_components:
-  - source:
-      type: git
-      url: https://github.com/andrew.backway/esphome-dometic-cfx-ble
-    components: [dometic_cfx_ble]
+  - source: github://andrewbackway/esphome-dometic_cfx_ble@main
 ```
 
 ## Basic Configuration
@@ -50,10 +47,7 @@ esp32:
     type: esp-idf
 
 external_components:
-  - source:
-      type: git
-      url: https://github.com/andrew.backway/esphome-dometic-cfx-ble
-    components: [dometic_cfx_ble]
+  - source: github://andrewbackway/esphome-dometic_cfx_ble@main
 
 esp32_ble_tracker:
 

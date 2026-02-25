@@ -28,7 +28,6 @@ CONFIG_SCHEMA = esphome_number.number_schema(DometicCfxBleNumber).extend(
     {
         cv.Required(CONF_DOMETIC_CFX_BLE_ID): cv.use_id(DometicCfxBle),
         cv.Required(CONF_TYPE): validate_topic_type,
-        # allow the YAML options you’re using
         cv.Required(CONF_MIN_VALUE): cv.float_,
         cv.Required(CONF_MAX_VALUE): cv.float_,
         cv.Required(CONF_STEP): cv.float_,
@@ -44,12 +43,6 @@ async def to_code(config):
 
     min_value = config[CONF_MIN_VALUE]
     max_value = config[CONF_MAX_VALUE]
-
-    if config[CONF_TYPE] in ["COMPARTMENT_0_SET_TEMPERATURE", "COMPARTMENT_1_SET_TEMPERATURE"]:
-        if parent.config[CONF_TEMPERATURE_UNIT] == "F":
-            config[CONF_UNIT_OF_MEASUREMENT] = "°F"
-        else:
-            config[CONF_UNIT_OF_MEASUREMENT] = "°C"
 
     # pass range/step into the number traits
     await esphome_number.register_number(
