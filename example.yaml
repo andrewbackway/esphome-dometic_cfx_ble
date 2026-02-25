@@ -35,6 +35,7 @@ dometic_cfx_ble:
   id: dometic_cfx_ble1
   ble_client_id: cfx_ble_client
   product_type: DZ  # or SZI, SZ
+  temperature_unit: C # Optional, defaults to Celsius. Set to F for Fahrenheit.
 sensor:
   - platform: dometic_cfx_ble
     dometic_cfx_ble_id: dometic_cfx_ble1

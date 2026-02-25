@@ -35,7 +35,7 @@ In your ESPHome YAML:
 external_components:
   - source:
       type: git
-      url: https://github.com/<your-username>/esphome-dometic-cfx-ble
+      url: https://github.com/andrew.backway/esphome-dometic-cfx-ble
     components: [dometic_cfx_ble]
 ```
 
@@ -52,7 +52,7 @@ esp32:
 external_components:
   - source:
       type: git
-      url: https://github.com/<your-username>/esphome-dometic-cfx-ble
+      url: https://github.com/andrew.backway/esphome-dometic-cfx-ble
     components: [dometic_cfx_ble]
 
 esp32_ble_tracker:
@@ -65,6 +65,7 @@ dometic_cfx_ble:
   id: dometic_cfx_ble1
   ble_client_id: cfx_ble_client
   product_type: DZ  # SZ = Single Zone | SZI = Single Zone Icemaker | DZ = Dual Zone 
+  temperature_unit: C # Optional, defaults to Celsius. Set to F for Fahrenheit.
 ```
 
 Then add entities bound to protocol “topics” (see example for more):
