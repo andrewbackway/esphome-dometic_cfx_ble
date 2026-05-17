@@ -103,6 +103,20 @@ TOPIC_TYPES = [
     "DC_CURRENT_HISTORY_WEEK",
 ]
 
+# Topics whose values are in degrees (INT16_DECIDEGREE_CELSIUS) — used by
+# sensor.py and number.py to auto-set unit_of_measurement.
+TEMPERATURE_TOPICS = {
+    "COMPARTMENT_0_MEASURED_TEMPERATURE",
+    "COMPARTMENT_1_MEASURED_TEMPERATURE",
+    "COMPARTMENT_0_SET_TEMPERATURE",
+    "COMPARTMENT_1_SET_TEMPERATURE",
+}
+
+# Registry populated during to_code so that platform modules (sensor, number)
+# can look up the parent component's configuration at code-generation time.
+_DOMETIC_CONFIGS = {}  # str(core.ID) -> config dict
+
+
 def validate_topic_type(value):
     """Ensure the YAML 'type' is one of the known topic types."""
     value = cv.string_strict(value)
@@ -160,4 +174,5 @@ async def to_code(config):
     cg.add(ble_client_var.register_ble_node(var))
     cg.add(var.set_product_type(config[CONF_PRODUCT_TYPE]))
     cg.add(var.set_temperature_unit(config[CONF_TEMPERATURE_UNIT]))
+    _DOMETIC_CONFIGS[str(config[CONF_ID])] = config
 

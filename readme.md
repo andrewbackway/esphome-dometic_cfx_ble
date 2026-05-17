@@ -15,7 +15,7 @@
 
 ## Requirements
 
-- ESPHome (ESP32 / ESP-IDF target)
+- ESPHome **2026.04.0 or newer** (ESP32 / ESP-IDF target)
 - ESP32 (tested on ESP32-S3)
 - BLE enabled with:
   - `esp32_ble_tracker`
@@ -88,6 +88,26 @@ number:
 ```
 
 Each `type` corresponds to a protocol topic (see `TOPIC_TYPES` in `__init__.py` and the topic list in `protocol.md`).
+
+---
+
+## Temperature Units
+
+Set `temperature_unit` on the main component to `C` (default) or `F`:
+
+```yaml
+dometic_cfx_ble:
+  id: dometic_cfx_ble1
+  ble_client_id: cfx_ble_client
+  product_type: DZ
+  temperature_unit: F  # or C (default)
+```
+
+- The component tells the fridge which unit to display via the `PRESENTED_TEMPERATURE_UNIT` topic on connect.
+- All `COMPARTMENT_*_MEASURED_TEMPERATURE` sensors automatically report in the chosen unit and the `unit_of_measurement` is set to `°C` or `°F` accordingly — no manual override needed.
+- For `COMPARTMENT_*_SET_TEMPERATURE` number entities, specify `min_value`/`max_value` in the chosen unit. The component converts values to the device's internal format automatically.
+  - Celsius typical range: `min_value: -22`, `max_value: 10`
+  - Fahrenheit typical range: `min_value: -8`, `max_value: 50`
 
 ---
 

@@ -15,9 +15,11 @@ from . import (
     dometic_cfx_ble_ns,
     DometicCfxBle,
     CONF_DOMETIC_CFX_BLE_ID,
+    CONF_TEMPERATURE_UNIT,
     TOPIC_TYPES,
     validate_topic_type,
-    CONF_TEMPERATURE_UNIT
+    TEMPERATURE_TOPICS,
+    _DOMETIC_CONFIGS,
 )
 
 DometicCfxBleNumber = dometic_cfx_ble_ns.class_(
@@ -56,3 +58,8 @@ async def to_code(config):
     cg.add(parent.add_entity(config[CONF_TYPE], var))
     cg.add(var.set_parent(parent))
     cg.add(var.set_topic(config[CONF_TYPE]))
+
+    if config[CONF_TYPE] in TEMPERATURE_TOPICS:
+        parent_cfg = _DOMETIC_CONFIGS.get(str(config[CONF_DOMETIC_CFX_BLE_ID]))
+        temp_unit = parent_cfg.get(CONF_TEMPERATURE_UNIT, "C") if parent_cfg else "C"
+        cg.add(var.set_unit_of_measurement("\u00b0F" if temp_unit == "F" else "\u00b0C"))
