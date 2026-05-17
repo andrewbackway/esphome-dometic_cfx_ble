@@ -6,6 +6,7 @@ from esphome.const import (
     CONF_TYPE,
     CONF_NAME,
     CONF_ACCURACY_DECIMALS,
+    CONF_UNIT_OF_MEASUREMENT,
 )
 
 from . import (
@@ -32,13 +33,13 @@ CONFIG_SCHEMA = esphome_sensor.sensor_schema(
 async def to_code(config):
     var = cg.new_Pvariable(config[CONF_ID])
     await cg.register_component(var, config)
-    await esphome_sensor.register_sensor(var, config)
-
-    parent = await cg.get_variable(config[CONF_DOMETIC_CFX_BLE_ID])
 
     if config[CONF_TYPE] in TEMPERATURE_TOPICS:
         parent_cfg = _DOMETIC_CONFIGS.get(str(config[CONF_DOMETIC_CFX_BLE_ID]))
         temp_unit = parent_cfg.get(CONF_TEMPERATURE_UNIT, "C") if parent_cfg else "C"
-        cg.add(var.set_unit_of_measurement("\u00b0F" if temp_unit == "F" else "\u00b0C"))
+        config = {**config, CONF_UNIT_OF_MEASUREMENT: "\u00b0F" if temp_unit == "F" else "\u00b0C"}
 
+    await esphome_sensor.register_sensor(var, config)
+
+    parent = await cg.get_variable(config[CONF_DOMETIC_CFX_BLE_ID])
     cg.add(parent.add_entity(config[CONF_TYPE], var))
