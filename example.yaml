@@ -1,7 +1,6 @@
 esphome:
   name: esphome-web-cfx3
   friendly_name: ESPHome Dometic CFX3 WiFi
-  min_version: 2025.10.0
 
 esp32:
   board: esp32-s3-devkitc-1
@@ -16,8 +15,6 @@ web_server:
 
 logger:  
   level: DEBUG
-
-api:
 
 ota:
 - platform: esphome
@@ -35,18 +32,19 @@ dometic_cfx_ble:
   id: dometic_cfx_ble1
   ble_client_id: cfx_ble_client
   product_type: DZ  # or SZI, SZ
+  temperature_unit: C  # Optional, defaults to C (Celsius). Set to F for Fahrenheit.
+  # temperature_unit: F
+
 sensor:
   - platform: dometic_cfx_ble
     dometic_cfx_ble_id: dometic_cfx_ble1
     type: COMPARTMENT_0_MEASURED_TEMPERATURE
     name: "CFX Zone 1 Temp"
-    unit_of_measurement: "°C"
     icon: mdi:thermometer
   - platform: dometic_cfx_ble
     dometic_cfx_ble_id: dometic_cfx_ble1
     type: COMPARTMENT_1_MEASURED_TEMPERATURE
     name: "CFX Zone 2 Temp"
-    unit_of_measurement: "°C"
     icon: mdi:thermometer
   - platform: dometic_cfx_ble
     dometic_cfx_ble_id: dometic_cfx_ble1
@@ -73,11 +71,11 @@ switch:
     icon: mdi:snowflake
 
 number:
+  # --- Celsius (default) ---
   - platform: dometic_cfx_ble
     dometic_cfx_ble_id: dometic_cfx_ble1
     type: COMPARTMENT_0_SET_TEMPERATURE
     name: "CFX Zone 1 Set Temp"
-    unit_of_measurement: "°C"
     min_value: -22
     max_value: 10
     step: 1
@@ -86,11 +84,28 @@ number:
     dometic_cfx_ble_id: dometic_cfx_ble1
     type: COMPARTMENT_1_SET_TEMPERATURE
     name: "CFX Zone 2 Set Temp"
-    unit_of_measurement: "°C"
     min_value: -22
     max_value: 10
     step: 1
     icon: mdi:thermometer-chevron-up
+
+  # --- Fahrenheit: set temperature_unit: F above and use these ranges instead ---
+  # - platform: dometic_cfx_ble
+  #   dometic_cfx_ble_id: dometic_cfx_ble1
+  #   type: COMPARTMENT_0_SET_TEMPERATURE
+  #   name: "CFX Zone 1 Set Temp"
+  #   min_value: -8    # -22 °C
+  #   max_value: 50    #  10 °C
+  #   step: 1
+  #   icon: mdi:thermometer-chevron-up
+  # - platform: dometic_cfx_ble
+  #   dometic_cfx_ble_id: dometic_cfx_ble1
+  #   type: COMPARTMENT_1_SET_TEMPERATURE
+  #   name: "CFX Zone 2 Set Temp"
+  #   min_value: -8
+  #   max_value: 50
+  #   step: 1
+  #   icon: mdi:thermometer-chevron-up
 
 binary_sensor:
   - platform: dometic_cfx_ble

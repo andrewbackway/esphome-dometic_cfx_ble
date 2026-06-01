@@ -15,8 +15,11 @@ from . import (
     dometic_cfx_ble_ns,
     DometicCfxBle,
     CONF_DOMETIC_CFX_BLE_ID,
+    CONF_TEMPERATURE_UNIT,
     TOPIC_TYPES,
     validate_topic_type,
+    TEMPERATURE_TOPICS,
+    _DOMETIC_CONFIGS,
 )
 
 DometicCfxBleNumber = dometic_cfx_ble_ns.class_(
@@ -27,7 +30,6 @@ CONFIG_SCHEMA = esphome_number.number_schema(DometicCfxBleNumber).extend(
     {
         cv.Required(CONF_DOMETIC_CFX_BLE_ID): cv.use_id(DometicCfxBle),
         cv.Required(CONF_TYPE): validate_topic_type,
-        # allow the YAML options you’re using
         cv.Required(CONF_MIN_VALUE): cv.float_,
         cv.Required(CONF_MAX_VALUE): cv.float_,
         cv.Required(CONF_STEP): cv.float_,
@@ -39,6 +41,13 @@ async def to_code(config):
     var = cg.new_Pvariable(config[CONF_ID])
     await cg.register_component(var, config)
 
+    parent = await cg.get_variable(config[CONF_DOMETIC_CFX_BLE_ID])
+
+    if config[CONF_TYPE] in TEMPERATURE_TOPICS:
+        parent_cfg = _DOMETIC_CONFIGS.get(str(config[CONF_DOMETIC_CFX_BLE_ID]))
+        temp_unit = parent_cfg.get(CONF_TEMPERATURE_UNIT, "C") if parent_cfg else "C"
+        config = {**config, CONF_UNIT_OF_MEASUREMENT: "\u00b0F" if temp_unit == "F" else "\u00b0C"}
+
     # pass range/step into the number traits
     await esphome_number.register_number(
         var,
@@ -48,7 +57,6 @@ async def to_code(config):
         step=config[CONF_STEP],
     )
 
-    parent = await cg.get_variable(config[CONF_DOMETIC_CFX_BLE_ID])
     cg.add(parent.add_entity(config[CONF_TYPE], var))
     cg.add(var.set_parent(parent))
     cg.add(var.set_topic(config[CONF_TYPE]))
