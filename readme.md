@@ -28,6 +28,7 @@
 - Find your Dometic's BLE MAC Address by pairing your phone with the cooler. On the
   Device Details page the device's Bluetooth address should be listed.
 - Alternatively installing nRF Connect on your mobile device, list nearby devices, look for a device named CFX_XXXXX under the name is the MAC address.
+- Fahrenheit version is avaialble under the dev branch, its not fully tested, please log an issue if theres any problems.
 
 In your ESPHome YAML:
 
