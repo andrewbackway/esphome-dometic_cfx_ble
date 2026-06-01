@@ -15,7 +15,7 @@
 
 ## Requirements
 
-- ESPHome **2026.04.0 or newer** (ESP32 / ESP-IDF target)
+- ESPHome **2026.05.0 or newer** (ESP32 / ESP-IDF target)
 - ESP32 (tested on ESP32-S3)
 - BLE enabled with:
   - `esp32_ble_tracker`
