@@ -29,6 +29,7 @@ static const char *const TAG = "dometic_cfx_ble";
 
 struct TopicInfo {
   uint8_t param[4];
+  uint8_t zone;           // 0 or 1: which zone this topic reads out of a paired payload
   const char *type;
   const char *description;
 };
