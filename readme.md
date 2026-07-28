@@ -1,4 +1,4 @@
-# ESPHome Dometic CFX BLE Component
+# ESPHome Dometic CFX3 BLE Component
 
  ESPHome External Component to control and monitor **Dometic CFX** fridges over **Bluetooth Low Energy** using the native ESP-IDF BLE stack. It implements the Dometic pub/sub protocol and exposes it as standard ESPHome entities.
 
