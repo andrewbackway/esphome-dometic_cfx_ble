@@ -27,6 +27,11 @@ CONF_PRODUCT_TYPE = "product_type"
 CONF_DOMETIC_CFX_BLE_ID = "dometic_cfx_ble_id"
 CONF_TEMPERATURE_UNIT = "temperature_unit"
 
+# NOTE: under the CFX5 protocol the component subscribes to every known
+# parameter individually (see ESP_GATTC_REG_FOR_NOTIFY_EVT in the .cpp), so
+# product_type no longer selects a "subscribe all" command like it did for
+# CFX3. Kept here only so existing YAML configs with `product_type:` don't
+# break; the value itself is currently unused.
 PRODUCT_TYPES = cv.enum(
     {
         "SZ": 1,
@@ -36,75 +41,27 @@ PRODUCT_TYPES = cv.enum(
     upper=True,
 )
 
+# CFX5 "MC1" generation topics - must stay in sync with the TOPICS map in
+# dometic_cfx_ble.cpp. The CFX3 topic list (serial number, wifi config,
+# history arrays, etc.) does not apply here - none of that has been
+# reverse-engineered for the CFX5 yet.
 TOPIC_TYPES = [
-    "SUBSCRIBE_APP_SZ",
-    "SUBSCRIBE_APP_SZI",
-    "SUBSCRIBE_APP_DZ",
-    "PRODUCT_SERIAL_NUMBER",
-    "COMPARTMENT_COUNT",
-    "ICEMAKER_COUNT",
-    "COMPARTMENT_0_POWER",
-    "COMPARTMENT_1_POWER",
     "COMPARTMENT_0_MEASURED_TEMPERATURE",
     "COMPARTMENT_1_MEASURED_TEMPERATURE",
-    "COMPARTMENT_0_DOOR_OPEN",
-    "COMPARTMENT_1_DOOR_OPEN",
     "COMPARTMENT_0_SET_TEMPERATURE",
     "COMPARTMENT_1_SET_TEMPERATURE",
-    "COMPARTMENT_0_RECOMMENDED_RANGE",
-    "COMPARTMENT_1_RECOMMENDED_RANGE",
-    "PRESENTED_TEMPERATURE_UNIT",
-    "COMPARTMENT_0_TEMPERATURE_RANGE",
-    "COMPARTMENT_1_TEMPERATURE_RANGE",
-    "COOLER_POWER",
-    "BATTERY_VOLTAGE_LEVEL",
-    "BATTERY_PROTECTION_LEVEL",
+    "COMPARTMENT_0_COMPRESSOR",
+    "COMPARTMENT_1_COMPRESSOR",
+    "COMPARTMENT_0_DOOR_OPEN",
+    "COMPARTMENT_1_DOOR_OPEN",
+    "COMPARTMENT_POWER",
+    "DC_VOLTAGE",
     "POWER_SOURCE",
-    "ICEMAKER_POWER",
-    "COMMUNICATION_ALARM",
-    "NTC_OPEN_LARGE_ERROR",
-    "NTC_SHORT_LARGE_ERROR",
-    "SOLENOID_VALVE_ERROR",
-    "NTC_OPEN_SMALL_ERROR",
-    "NTC_SHORT_SMALL_ERROR",
-    "FAN_OVERVOLTAGE_ERROR",
-    "COMPRESSOR_START_FAIL_ERROR",
-    "COMPRESSOR_SPEED_ERROR",
-    "CONTROLLER_OVER_TEMPERATURE",
-    "TEMPERATURE_ALERT_DCM",
-    "TEMPERATURE_ALERT_CC",
     "DOOR_ALERT",
-    "VOLTAGE_ALERT",
-    "DEVICE_NAME",
-    "WIFI_MODE",
-    "BLUETOOTH_MODE",
-    "WIFI_AP_CONNECTED",
-    "STATION_SSID_0",
-    "STATION_SSID_1",
-    "STATION_SSID_2",
-    "STATION_PASSWORD_0",
-    "STATION_PASSWORD_1",
-    "STATION_PASSWORD_2",
-    "STATION_PASSWORD_3",
-    "STATION_PASSWORD_4",
-    "CFX_DIRECT_PASSWORD_0",
-    "CFX_DIRECT_PASSWORD_1",
-    "CFX_DIRECT_PASSWORD_2",
-    "CFX_DIRECT_PASSWORD_3",
-    "CFX_DIRECT_PASSWORD_4",
-    "COMPARTMENT_0_TEMPERATURE_HISTORY_HOUR",
-    "COMPARTMENT_1_TEMPERATURE_HISTORY_HOUR",
-    "COMPARTMENT_0_TEMPERATURE_HISTORY_DAY",
-    "COMPARTMENT_1_TEMPERATURE_HISTORY_DAY",
-    "COMPARTMENT_0_TEMPERATURE_HISTORY_WEEK",
-    "COMPARTMENT_1_TEMPERATURE_HISTORY_WEEK",
-    "DC_CURRENT_HISTORY_HOUR",
-    "DC_CURRENT_HISTORY_DAY",
-    "DC_CURRENT_HISTORY_WEEK",
 ]
 
-# Topics whose values are in degrees (INT16_DECIDEGREE_CELSIUS) — used by
-# sensor.py and number.py to auto-set unit_of_measurement.
+# Topics whose values are temperatures - used by sensor.py and number.py to
+# auto-set unit_of_measurement.
 TEMPERATURE_TOPICS = {
     "COMPARTMENT_0_MEASURED_TEMPERATURE",
     "COMPARTMENT_1_MEASURED_TEMPERATURE",
