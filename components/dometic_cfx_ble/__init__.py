@@ -18,6 +18,7 @@ from esphome.components import ble_client
 
 AUTO_LOAD = ["esp32_ble_tracker", "ble_client", "select", "number", "switch", "text_sensor", "binary_sensor", "sensor"]
 DEPENDENCIES = ['esp32_ble_tracker', 'ble_client']
+MULTI_CONF = True
 
 
 dometic_cfx_ble_ns = cg.esphome_ns.namespace("dometic_cfx_ble")
