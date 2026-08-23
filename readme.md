@@ -63,6 +63,50 @@ dometic_cfx_ble:
   temperature_unit: C # Optional, defaults to Celsius. Set to F for Fahrenheit.
 ```
 
+## Multiple CFX3 Devices
+
+Multiple physical CFX3 refrigerators can be connected to the same ESPHome node. Define one `ble_client` and one `dometic_cfx_ble` instance for each device.
+
+```yaml
+ble_client:
+  - mac_address: AA:BB:CC:DD:EE:01
+    id: cfx_small_client
+
+  - mac_address: AA:BB:CC:DD:EE:02
+    id: cfx_dual_client
+
+dometic_cfx_ble:
+  - id: cfx_small
+    ble_client_id: cfx_small_client
+    product_type: SZ
+    temperature_unit: F
+
+  - id: cfx_dual
+    ble_client_id: cfx_dual_client
+    product_type: DZ
+    temperature_unit: F
+```
+
+Entities are associated with a specific refrigerator using `dometic_cfx_ble_id`:
+
+```yaml
+sensor:
+  - platform: dometic_cfx_ble
+    dometic_cfx_ble_id: cfx_small
+    type: COMPARTMENT_0_MEASURED_TEMPERATURE
+    name: "Small CFX3 Temperature"
+
+  - platform: dometic_cfx_ble
+    dometic_cfx_ble_id: cfx_dual
+    type: COMPARTMENT_0_MEASURED_TEMPERATURE
+    name: "Dual CFX3 Zone 1 Temperature"
+
+  - platform: dometic_cfx_ble
+    dometic_cfx_ble_id: cfx_dual
+    type: COMPARTMENT_1_MEASURED_TEMPERATURE
+    name: "Dual CFX3 Zone 2 Temperature"
+```
+
 Then add entities bound to protocol “topics” (see example for more):
 
 ```yaml
