@@ -8,13 +8,17 @@ extern "C" {
 #include "esp_gattc_api.h"
 }
 
+#include <array>
+
 namespace esphome {
 namespace dometic_cfx_ble {
 
 // UUID strings (from Dometic app)
-static const char *SERVICE_UUID = "537a0300-0995-481f-926c-1604e23fd515";
-static const char *WRITE_UUID   = "537a0301-0995-481f-926c-1604e23fd515";
-static const char *NOTIFY_UUID  = "537a0302-0995-481f-926c-1604e23fd515";
+// NOTE: this is the CFX5 "MC1" BLE generation. The original CFX3 generation
+// used the 537a03xx group instead (537a0300 / ...0301 / ...0302).
+static const char *SERVICE_UUID = "537a0400-0995-481f-926c-1604e23fd515";
+static const char *WRITE_UUID   = "537a0401-0995-481f-926c-1604e23fd515";
+static const char *NOTIFY_UUID  = "537a0402-0995-481f-926c-1604e23fd515";
 
 static const float NO_VALUE = -3276.8f;
 
@@ -38,71 +42,51 @@ static const char *power_source_str(int v) {
 
 // ----------------- Topic table ----------------------------------------------
 
+// ----------------------------------------------------------------------------
+// CFX5 "MC1" generation parameter map.
+//
+// Reverse-engineered against a CFX5 95DZ (dual-zone) in the Rotoslider/
+// dometic-cfx5-monitor project (github.com/Rotoslider/dometic-cfx5-monitor).
+// The group byte 0x1A is CONFIRMED ONLY on that 95DZ unit. Single-zone CFX5
+// models (25/45/75 etc.) very likely use the same group byte and just never
+// populate the "zone 1" half of the payload, but this is NOT verified yet.
+//
+// Recommended first step on real hardware: leave DUMP_UNKNOWN_FRAMES (below)
+// enabled, watch the logs for a few minutes, and confirm the keys below
+// actually show up. If a key never appears, or an extra unknown key does,
+// adjust this table accordingly before trusting the decoded values.
+//
+// Dual-zone parameters arrive as ONE 8-byte notify payload = two little-
+// endian int32 values (zone0, zone1), each already scaled /1000. Single-zone
+// coolers likely send only the first 4 bytes (zone0).
 const std::map<std::string, TopicInfo> TOPICS = {
-    {"SUBSCRIBE_APP_SZ", {{1, 0, 0, 129}, "EMPTY", "Subscribe all SZ"}},
-    {"SUBSCRIBE_APP_SZI", {{2, 0, 0, 129}, "EMPTY", "Subscribe all SZI"}},
-    {"SUBSCRIBE_APP_DZ", {{3, 0, 0, 129}, "EMPTY", "Subscribe all DZ"}},
-    {"PRODUCT_SERIAL_NUMBER", {{0, 193, 0, 0}, "UTF8_STRING", "Serial number"}},
-    {"COMPARTMENT_COUNT", {{0, 128, 0, 1}, "INT8_NUMBER", "Compartments count"}},
-    {"ICEMAKER_COUNT", {{0, 129, 0, 1}, "INT8_NUMBER", "Icemakers count"}},
-    {"COMPARTMENT_0_POWER", {{0, 0, 1, 1}, "INT8_BOOLEAN", "Compartment 1 power"}},
-    {"COMPARTMENT_1_POWER", {{16, 0, 1, 1}, "INT8_BOOLEAN", "Compartment 2 power"}},
-    {"COMPARTMENT_0_MEASURED_TEMPERATURE", {{0, 1, 1, 1}, "INT16_DECIDEGREE_CELSIUS", "Compartment 1 current temp"}},
-    {"COMPARTMENT_1_MEASURED_TEMPERATURE", {{16, 1, 1, 1}, "INT16_DECIDEGREE_CELSIUS", "Compartment 2 current temp"}},
-    {"COMPARTMENT_0_DOOR_OPEN", {{0, 8, 1, 1}, "INT8_BOOLEAN", "Compartment 1 door open"}},
-    {"COMPARTMENT_1_DOOR_OPEN", {{16, 8, 1, 1}, "INT8_BOOLEAN", "Compartment 2 door open"}},
-    {"COMPARTMENT_0_SET_TEMPERATURE", {{0, 2, 1, 1}, "INT16_DECIDEGREE_CELSIUS", "Compartment 1 set temp"}},
-    {"COMPARTMENT_1_SET_TEMPERATURE", {{16, 2, 1, 1}, "INT16_DECIDEGREE_CELSIUS", "Compartment 2 set temp"}},
-    {"COMPARTMENT_0_RECOMMENDED_RANGE", {{0, 129, 1, 1}, "INT16_ARRAY", "Compartment 1 recommended range"}},
-    {"COMPARTMENT_1_RECOMMENDED_RANGE", {{16, 129, 1, 1}, "INT16_ARRAY", "Compartment 2 recommended range"}},
-    {"PRESENTED_TEMPERATURE_UNIT", {{0, 0, 2, 1}, "INT8_NUMBER", "Temperature unit"}},
-    {"COMPARTMENT_0_TEMPERATURE_RANGE", {{0, 128, 1, 1}, "INT16_ARRAY", "Compartment 1 allowed range"}},
-    {"COMPARTMENT_1_TEMPERATURE_RANGE", {{16, 128, 1, 1}, "INT16_ARRAY", "Compartment 2 allowed range"}},
-    {"COOLER_POWER", {{0, 0, 3, 1}, "INT8_BOOLEAN", "Cooler power"}},
-    {"BATTERY_VOLTAGE_LEVEL", {{0, 1, 3, 1}, "INT16_DECICURRENT_VOLT", "Battery voltage"}},
-    {"BATTERY_PROTECTION_LEVEL", {{0, 2, 3, 1}, "UINT8_NUMBER", "Battery protection level"}},
-    {"POWER_SOURCE", {{0, 5, 3, 1}, "INT8_NUMBER", "Power source"}},
-    {"ICEMAKER_POWER", {{0, 6, 3, 1}, "INT8_BOOLEAN", "Icemaker power"}},
-    {"COMMUNICATION_ALARM", {{0, 3, 4, 1}, "INT8_BOOLEAN", "Communication alarm"}},
-    {"NTC_OPEN_LARGE_ERROR", {{0, 1, 4, 1}, "INT8_BOOLEAN", "NTC open large"}},
-    {"NTC_SHORT_LARGE_ERROR", {{0, 2, 4, 1}, "INT8_BOOLEAN", "NTC short large"}},
-    {"SOLENOID_VALVE_ERROR", {{0, 9, 4, 1}, "INT8_BOOLEAN", "Solenoid valve error"}},
-    {"NTC_OPEN_SMALL_ERROR", {{0, 17, 4, 1}, "INT8_BOOLEAN", "NTC open small"}},
-    {"NTC_SHORT_SMALL_ERROR", {{0, 18, 4, 1}, "INT8_BOOLEAN", "NTC short small"}},
-    {"FAN_OVERVOLTAGE_ERROR", {{0, 50, 4, 1}, "INT8_BOOLEAN", "Fan overvoltage"}},
-    {"COMPRESSOR_START_FAIL_ERROR", {{0, 51, 4, 1}, "INT8_BOOLEAN", "Compressor start fail"}},
-    {"COMPRESSOR_SPEED_ERROR", {{0, 52, 4, 1}, "INT8_BOOLEAN", "Compressor speed error"}},
-    {"CONTROLLER_OVER_TEMPERATURE", {{0, 53, 4, 1}, "INT8_BOOLEAN", "Controller over temp"}},
-    {"TEMPERATURE_ALERT_DCM", {{0, 3, 5, 1}, "INT8_BOOLEAN", "Temp alert DCM"}},
-    {"TEMPERATURE_ALERT_CC", {{0, 0, 5, 1}, "INT8_BOOLEAN", "Temp alert CC"}},
-    {"DOOR_ALERT", {{0, 1, 5, 1}, "INT8_BOOLEAN", "Door alert"}},
-    {"VOLTAGE_ALERT", {{0, 2, 5, 1}, "INT8_BOOLEAN", "Voltage alert"}},
-    {"DEVICE_NAME", {{0, 0, 6, 1}, "UTF8_STRING", "Device name"}},
-    {"WIFI_MODE", {{0, 1, 6, 1}, "INT8_BOOLEAN", "WiFi mode"}},
-    {"BLUETOOTH_MODE", {{0, 3, 6, 1}, "INT8_BOOLEAN", "Bluetooth mode"}},
-    {"WIFI_AP_CONNECTED", {{0, 8, 6, 1}, "INT8_BOOLEAN", "WiFi AP connected"}},
-    {"STATION_SSID_0", {{0, 0, 7, 1}, "UTF8_STRING", "Station SSID 0"}},
-    {"STATION_SSID_1", {{1, 0, 7, 1}, "UTF8_STRING", "Station SSID 1"}},
-    {"STATION_SSID_2", {{2, 0, 7, 1}, "UTF8_STRING", "Station SSID 2"}},
-    {"STATION_PASSWORD_0", {{0, 1, 7, 1}, "UTF8_STRING", "Station password 0"}},
-    {"STATION_PASSWORD_1", {{1, 1, 7, 1}, "UTF8_STRING", "Station password 1"}},
-    {"STATION_PASSWORD_2", {{2, 1, 7, 1}, "UTF8_STRING", "Station password 2"}},
-    {"STATION_PASSWORD_3", {{3, 1, 7, 1}, "UTF8_STRING", "Station password 3"}},
-    {"STATION_PASSWORD_4", {{4, 1, 7, 1}, "UTF8_STRING", "Station password 4"}},
-    {"CFX_DIRECT_PASSWORD_0", {{0, 2, 7, 1}, "UTF8_STRING", "CFX direct password 0"}},
-    {"CFX_DIRECT_PASSWORD_1", {{1, 2, 7, 1}, "UTF8_STRING", "CFX direct password 1"}},
-    {"CFX_DIRECT_PASSWORD_2", {{2, 2, 7, 1}, "UTF8_STRING", "CFX direct password 2"}},
-    {"CFX_DIRECT_PASSWORD_3", {{3, 2, 7, 1}, "UTF8_STRING", "CFX direct password 3"}},
-    {"CFX_DIRECT_PASSWORD_4", {{4, 2, 7, 1}, "UTF8_STRING", "CFX direct password 4"}},
-    {"COMPARTMENT_0_TEMPERATURE_HISTORY_HOUR", {{0, 64, 1, 1}, "HISTORY_DATA_ARRAY", "Comp 1 hour temp history"}},
-    {"COMPARTMENT_1_TEMPERATURE_HISTORY_HOUR", {{16, 64, 1, 1}, "HISTORY_DATA_ARRAY", "Comp 2 hour temp history"}},
-    {"COMPARTMENT_0_TEMPERATURE_HISTORY_DAY", {{0, 65, 1, 1}, "HISTORY_DATA_ARRAY", "Comp 1 day temp history"}},
-    {"COMPARTMENT_1_TEMPERATURE_HISTORY_DAY", {{16, 65, 1, 1}, "HISTORY_DATA_ARRAY", "Comp 2 day temp history"}},
-    {"COMPARTMENT_0_TEMPERATURE_HISTORY_WEEK", {{0, 66, 1, 1}, "HISTORY_DATA_ARRAY", "Comp 1 week temp history"}},
-    {"COMPARTMENT_1_TEMPERATURE_HISTORY_WEEK", {{16, 66, 1, 1}, "HISTORY_DATA_ARRAY", "Comp 2 week temp history"}},
-    {"DC_CURRENT_HISTORY_HOUR", {{0, 64, 3, 1}, "HISTORY_DATA_ARRAY", "DC current hour history"}},
-    {"DC_CURRENT_HISTORY_DAY", {{0, 65, 3, 1}, "HISTORY_DATA_ARRAY", "DC current day history"}},
-    {"DC_CURRENT_HISTORY_WEEK", {{0, 66, 3, 1}, "HISTORY_DATA_ARRAY", "DC current week history"}},
+    // measured_temp: key (0x04,0x00,0x00,0x1A)
+    {"COMPARTMENT_0_MEASURED_TEMPERATURE", {{0x04, 0x00, 0x00, 0x1A}, 0, "PAIR_INT32_MILLI_CELSIUS", "Compartment 1 current temp"}},
+    {"COMPARTMENT_1_MEASURED_TEMPERATURE", {{0x04, 0x00, 0x00, 0x1A}, 1, "PAIR_INT32_MILLI_CELSIUS", "Compartment 2 current temp"}},
+
+    // set_temp: key (0x05,0x00,0x00,0x1A)
+    {"COMPARTMENT_0_SET_TEMPERATURE", {{0x05, 0x00, 0x00, 0x1A}, 0, "PAIR_INT32_MILLI_CELSIUS", "Compartment 1 set temp"}},
+    {"COMPARTMENT_1_SET_TEMPERATURE", {{0x05, 0x00, 0x00, 0x1A}, 1, "PAIR_INT32_MILLI_CELSIUS", "Compartment 2 set temp"}},
+
+    // compressor (pair_bool): key (0x03,0x00,0x00,0x1A)
+    {"COMPARTMENT_0_COMPRESSOR", {{0x03, 0x00, 0x00, 0x1A}, 0, "PAIR_INT32_BOOLEAN", "Compartment 1 compressor"}},
+    {"COMPARTMENT_1_COMPRESSOR", {{0x03, 0x00, 0x00, 0x1A}, 1, "PAIR_INT32_BOOLEAN", "Compartment 2 compressor"}},
+
+    // door_open: key (0x07,0x00,0x00,0x1A) - width unconfirmed, treated as pair
+    {"COMPARTMENT_0_DOOR_OPEN", {{0x07, 0x00, 0x00, 0x1A}, 0, "PAIR_INT32_BOOLEAN", "Compartment 1 door open"}},
+    {"COMPARTMENT_1_DOOR_OPEN", {{0x07, 0x00, 0x00, 0x1A}, 1, "PAIR_INT32_BOOLEAN", "Compartment 2 door open"}},
+
+    // compartment_power: key (0x0B,0x00,0x00,0x1A) - width unconfirmed
+    {"COMPARTMENT_POWER", {{0x0B, 0x00, 0x00, 0x1A}, 0, "INT32_NUMBER", "Compartment power"}},
+
+    // dc_voltage: key (0x0C,0x00,0x00,0x1A), single int32/1000 V
+    {"DC_VOLTAGE", {{0x0C, 0x00, 0x00, 0x1A}, 0, "INT32_MILLI_VOLT", "DC input voltage"}},
+
+    // power_source: key (0x10,0x00,0x00,0x1A), 0=AC/1=DC/2=Solar
+    {"POWER_SOURCE", {{0x10, 0x00, 0x00, 0x1A}, 0, "INT32_POWER_SOURCE", "Power source"}},
+
+    // door_alert: key (0x12,0x00,0x00,0x1A), single bool
+    {"DOOR_ALERT", {{0x12, 0x00, 0x00, 0x1A}, 0, "INT32_BOOLEAN", "Door alert"}},
 };
 
 // ----------------- Component lifecycle --------------------------------------
@@ -156,15 +140,20 @@ void DometicCfxBle::dump_config() {
 
 // ----------------- Frame helpers --------------------------------------------
 
+// CFX5 "MC1" generation opcodes (confirmed via Rotoslider/dometic-cfx5-monitor
+// against real hardware). There is no ACK/NAK/HELLO handshake on this
+// generation: you write a SUBSCRIBE frame per parameter and the cooler just
+// starts pushing PUBLISH frames for it, forever, on its own.
 enum : uint8_t {
-  ACTION_PUB   = 0,
-  ACTION_SUB   = 1,
-  ACTION_PING  = 2,
-  ACTION_HELLO = 3,
-  ACTION_ACK   = 4,
-  ACTION_NAK   = 5,
-  ACTION_NOP   = 6,
+  ACTION_PUB = 0x10,  // cooler -> us: [0x10, key0..3, value...]
+  ACTION_SUB = 0x12,  // us -> cooler: [0x12, key0..3]
 };
+
+// Set to 1 while bringing up a new/unverified CFX5 model: logs every
+// PUBLISH frame whose key isn't in TOPICS yet, in hex, at INFO level so it's
+// visible without needing VERBOSE logging. Turn back to 0 once your model's
+// keys are confirmed and added to TOPICS.
+#define DOMETIC_DUMP_UNKNOWN_FRAMES 1
 
 void DometicCfxBle::send_pub(const std::string &topic, const std::vector<uint8_t> &value) {
   auto it = TOPICS.find(topic);
@@ -200,29 +189,22 @@ void DometicCfxBle::send_sub(const std::string &topic) {
 }
 
 void DometicCfxBle::send_ping() {
-  std::vector<uint8_t> frame(1);
-  frame[0] = ACTION_PING;
-  this->send_queue_.push(std::move(frame));
+  // No-op: the CFX5 "MC1" generation has no ping/keepalive frame in its
+  // protocol - kept only so the header's public API stays unchanged.
 }
 
 void DometicCfxBle::send_switch(const std::string &topic, bool value) {
-  std::string type_hint = "INT8_BOOLEAN";
-  auto it = TOPICS.find(topic);
-  if (it != TOPICS.end() && it->second.type != nullptr)
-    type_hint = it->second.type;
-
-  auto payload = this->encode_from_bool_(value, type_hint);
-  this->send_pub(topic, payload);
+  // NOTE: writing (e.g. toggling cooler/compartment power) has NOT been
+  // reverse-engineered for the CFX5 "MC1" generation yet - only reading via
+  // 0x10/0x12 has been confirmed. Sending an unverified PUB (opcode 0) frame
+  // here could be ignored, or in the worst case misinterpreted by the
+  // cooler's firmware. Disabled until confirmed against a real device.
+  ESP_LOGW(TAG, "send_switch('%s'): write support unverified for CFX5 - not sending", topic.c_str());
 }
 
 void DometicCfxBle::send_number(const std::string &topic, float value) {
-  std::string type_hint = "INT16_DECIDEGREE_CELSIUS";
-  auto it = TOPICS.find(topic);
-  if (it != TOPICS.end() && it->second.type != nullptr)
-    type_hint = it->second.type;
-
-  auto payload = this->encode_from_float_(value, type_hint);
-  this->send_pub(topic, payload);
+  // See send_switch() note above - same caveat applies to setpoint writes.
+  ESP_LOGW(TAG, "send_number('%s'): write support unverified for CFX5 - not sending", topic.c_str());
 }
 
 // ----------------- GATTC callbacks (HikeIT-style) ---------------------------
@@ -284,22 +266,30 @@ void DometicCfxBle::gattc_event_handler(esp_gattc_cb_event_t event,
       if (param->reg_for_notify.status == ESP_GATT_OK) {
         ESP_LOGI(TAG, "Notifications registered");
 
-        this->send_ping();
-
-        std::string sub_topic;
-        switch (this->product_type_) {
-          case 1: sub_topic = "SUBSCRIBE_APP_SZ"; break;
-          case 2: sub_topic = "SUBSCRIBE_APP_SZI"; break;
-          case 3: sub_topic = "SUBSCRIBE_APP_DZ"; break;
-          default:
-            ESP_LOGW(TAG, "Unknown product_type %u, not subscribing", this->product_type_);
-            break;
+        // CFX5 has no single "subscribe all" command like the CFX3 DDM
+        // protocol did. Instead: send one SUBSCRIBE (0x12) frame per unique
+        // parameter key. Two topics can share the same key (zone0/zone1 of
+        // a dual-zone parameter), so de-duplicate by key first.
+        std::vector<std::array<uint8_t, 4>> unique_keys;
+        for (const auto &kv : TOPICS) {
+          std::array<uint8_t, 4> key = {kv.second.param[0], kv.second.param[1],
+                                         kv.second.param[2], kv.second.param[3]};
+          bool seen = false;
+          for (const auto &k : unique_keys) {
+            if (k == key) { seen = true; break; }
+          }
+          if (!seen)
+            unique_keys.push_back(key);
         }
-        if (!sub_topic.empty())
-          this->send_sub(sub_topic);
-        
-        uint8_t unit_value = (this->temperature_unit_ == "F") ? 1 : 0;
-        this->send_pub("PRESENTED_TEMPERATURE_UNIT", {unit_value});
+
+        ESP_LOGD(TAG, "Subscribing to %u parameters", (unsigned) unique_keys.size());
+        for (const auto &key : unique_keys) {
+          std::vector<uint8_t> frame;
+          frame.reserve(5);
+          frame.push_back(ACTION_SUB);
+          frame.insert(frame.end(), key.begin(), key.end());
+          this->send_queue_.push(std::move(frame));
+        }
 
       } else {
         ESP_LOGW(TAG, "REG_FOR_NOTIFY failed: %d", param->reg_for_notify.status);
@@ -341,34 +331,16 @@ void DometicCfxBle::handle_notify_(const uint8_t *data, uint16_t length) {
   uint8_t action = data[0];
   ESP_LOGVV(TAG, "RX frame action=0x%02X len=%u", action, (unsigned) length);
 
-  auto send_ack = [&]() {
-    std::vector<uint8_t> ack(1);
-    ack[0] = ACTION_ACK;
-    this->send_queue_.push(std::move(ack));
-  };
-
-  if (action == ACTION_ACK || action == ACTION_NAK) {
-    if (!this->send_queue_.empty())
-      this->send_queue_.pop();
-    if (action == ACTION_NAK)
-      ESP_LOGW(TAG, "Fridge returned NAK");
-    return;
-  }
-
-  if (action == ACTION_PING || action == ACTION_SUB ||
-      action == ACTION_HELLO || action == ACTION_NOP) {
-    send_ack();
-    return;
-  }
-
   if (action != ACTION_PUB) {
-    ESP_LOGV(TAG, "Unhandled DDM action 0x%02X", action);
+    // CFX5 has no ACK/NAK/HELLO/PING to answer to - anything that isn't a
+    // 0x10 publish is either unexpected or a generation we haven't seen yet.
+    ESP_LOGV(TAG, "Unhandled frame action=0x%02X len=%u: %s",
+             action, (unsigned) length, format_hex(data, length).c_str());
     return;
   }
 
   if (length < 5) {
     ESP_LOGW(TAG, "PUB frame too short: %u", (unsigned) length);
-    send_ack();
     return;
   }
 
@@ -377,44 +349,53 @@ void DometicCfxBle::handle_notify_(const uint8_t *data, uint16_t length) {
                  (static_cast<uint32_t>(data[3]) << 16) |
                  (static_cast<uint32_t>(data[4]) << 24);
 
-  std::string topic;
-  const TopicInfo *info = nullptr;
-
-  for (const auto &kv : TOPICS) {
-    const TopicInfo &ti = kv.second;
-    uint32_t tk = static_cast<uint32_t>(ti.param[0]) |
-                  (static_cast<uint32_t>(ti.param[1]) << 8) |
-                  (static_cast<uint32_t>(ti.param[2]) << 16) |
-                  (static_cast<uint32_t>(ti.param[3]) << 24);
-    if (tk == key) {
-      topic = kv.first;
-      info = &ti;
-      break;
-    }
-  }
-
   std::vector<uint8_t> payload;
   if (length > 5)
     payload.assign(data + 5, data + length);
 
-  if (info == nullptr) {
-    ESP_LOGV(TAG, "Unknown DDM key 0x%08X", (unsigned) key);
-    send_ack();
-    return;
+  bool matched = false;
+  for (const auto &kv : TOPICS) {
+    const std::string &topic = kv.first;
+    const TopicInfo &info = kv.second;
+    uint32_t tk = static_cast<uint32_t>(info.param[0]) |
+                  (static_cast<uint32_t>(info.param[1]) << 8) |
+                  (static_cast<uint32_t>(info.param[2]) << 16) |
+                  (static_cast<uint32_t>(info.param[3]) << 24);
+    if (tk != key)
+      continue;
+
+    matched = true;
+
+    // Dual-zone parameters pack zone0/zone1 into one 8-byte payload; slice
+    // out this topic's 4 bytes if the payload is wide enough, otherwise
+    // (single-zone hardware) fall back to the whole payload for zone 0.
+    std::vector<uint8_t> slice;
+    std::string type_hint = info.type ? info.type : "RAW";
+    if (type_hint.rfind("PAIR_", 0) == 0 && payload.size() >= 8) {
+      size_t off = info.zone == 1 ? 4 : 0;
+      slice.assign(payload.begin() + off, payload.begin() + off + 4);
+    } else {
+      slice = payload;
+    }
+
+    ESP_LOGV(TAG, "PUB %s (%s) raw=%s", topic.c_str(), type_hint.c_str(),
+             format_hex(slice.data(), slice.size()).c_str());
+
+    this->update_entity_(topic, slice);
+
+    std::string desc = this->get_english_desc_(topic, info, slice);
+    if (!desc.empty())
+      ESP_LOGD(TAG, "%s", desc.c_str());
   }
 
-  ESP_LOGV(TAG, "PUB %s (%s) len=%u",
-           topic.c_str(),
-           info->type ? info->type : "",
-           (unsigned) payload.size());
-
-  this->update_entity_(topic, payload);
-
-  std::string desc = this->get_english_desc_(topic, *info, payload);
-  if (!desc.empty())
-    ESP_LOGD(TAG, "%s", desc.c_str());
-
-  send_ack();
+  if (!matched) {
+#if DOMETIC_DUMP_UNKNOWN_FRAMES
+    ESP_LOGI(TAG, "Unknown key 0x%08X (%u bytes): %s", (unsigned) key,
+             (unsigned) payload.size(), format_hex(payload.data(), payload.size()).c_str());
+#else
+    ESP_LOGV(TAG, "Unknown key 0x%08X", (unsigned) key);
+#endif
+  }
 }
 
 // ----------------- Entity update + encode/decode ----------------------------
@@ -458,7 +439,33 @@ void DometicCfxBle::update_entity_(const std::string &topic, const std::vector<u
   ESP_LOGV(TAG, "No entity for topic '%s'", topic.c_str());
 }
 
+static int32_t decode_i32_le(const std::vector<uint8_t> &bytes) {
+  if (bytes.size() < 4) return 0;
+  uint32_t raw = static_cast<uint32_t>(bytes[0]) | (static_cast<uint32_t>(bytes[1]) << 8) |
+                 (static_cast<uint32_t>(bytes[2]) << 16) | (static_cast<uint32_t>(bytes[3]) << 24);
+  return static_cast<int32_t>(raw);
+}
+
 float DometicCfxBle::decode_to_float_(const std::vector<uint8_t> &bytes, const std::string &type_hint) {
+  // CFX5 "MC1" generation types: 4-byte little-endian int32, pre-scaled /1000.
+  if (type_hint == "PAIR_INT32_MILLI_CELSIUS" || type_hint == "INT32_MILLI_CELSIUS") {
+    if (bytes.size() < 4) return NAN;
+    float celsius = static_cast<float>(decode_i32_le(bytes)) / 1000.0f;
+    if (this->temperature_unit_ == "F")
+      return (celsius * 9.0f / 5.0f) + 32.0f;
+    return celsius;
+  }
+
+  if (type_hint == "INT32_MILLI_VOLT") {
+    if (bytes.size() < 4) return NAN;
+    return static_cast<float>(decode_i32_le(bytes)) / 1000.0f;
+  }
+
+  if (type_hint == "INT32_NUMBER" || type_hint == "INT32_POWER_SOURCE") {
+    if (bytes.size() < 4) return NAN;
+    return static_cast<float>(decode_i32_le(bytes));
+  }
+
   if (type_hint == "INT16_DECIDEGREE_CELSIUS") {
     if (bytes.size() < 2) return NAN;
     int16_t raw = static_cast<int16_t>(bytes[0] | (static_cast<int16_t>(bytes[1]) << 8));
@@ -485,6 +492,10 @@ float DometicCfxBle::decode_to_float_(const std::vector<uint8_t> &bytes, const s
 
 bool DometicCfxBle::decode_to_bool_(const std::vector<uint8_t> &bytes, const std::string &type_hint) {
   if (bytes.empty()) return false;
+  if (type_hint == "PAIR_INT32_BOOLEAN" || type_hint == "INT32_BOOLEAN") {
+    if (bytes.size() < 4) return false;
+    return decode_i32_le(bytes) != 0;
+  }
   if (type_hint == "INT8_BOOLEAN")
     return bytes[0] != 0;
   return bytes[0] != 0;
@@ -558,6 +569,42 @@ std::string DometicCfxBle::get_english_desc_(const std::string &topic_key,
                                              const std::vector<uint8_t> &bytes) {
   const std::string type(info.type ? info.type : "");
   const std::string desc(info.description ? info.description : "");
+
+  if (type == "PAIR_INT32_MILLI_CELSIUS" || type == "INT32_MILLI_CELSIUS") {
+    float v = decode_to_float_(bytes, type);
+    char buf[64];
+    snprintf(buf, sizeof(buf), "%s is %.1f\u00b0%s", desc.c_str(), v, this->temperature_unit_.c_str());
+    return std::string(buf);
+  }
+
+  if (type == "INT32_MILLI_VOLT") {
+    float v = decode_to_float_(bytes, type);
+    char buf[64];
+    snprintf(buf, sizeof(buf), "%s is %.2fV", desc.c_str(), v);
+    return std::string(buf);
+  }
+
+  if (type == "PAIR_INT32_BOOLEAN" || type == "INT32_BOOLEAN") {
+    bool v = decode_to_bool_(bytes, type);
+    return desc + " is " + (v ? "active" : "inactive");
+  }
+
+  if (type == "INT32_POWER_SOURCE") {
+    int v = static_cast<int>(decode_to_float_(bytes, type));
+    const char *label = power_source_str(v);
+    if (label != nullptr)
+      return desc + " is " + label;
+    char buf[64];
+    snprintf(buf, sizeof(buf), "%s is %d", desc.c_str(), v);
+    return std::string(buf);
+  }
+
+  if (type == "INT32_NUMBER") {
+    int v = static_cast<int>(decode_to_float_(bytes, type));
+    char buf[64];
+    snprintf(buf, sizeof(buf), "%s is %d", desc.c_str(), v);
+    return std::string(buf);
+  }
 
   if (type == "INT16_DECIDEGREE_CELSIUS") {
     float v = decode_to_float_(bytes, type);
