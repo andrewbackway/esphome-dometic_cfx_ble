@@ -30,9 +30,41 @@
 
 ## Installation
 
-- Find your Dometic's BLE MAC Address by pairing your phone with the cooler. On the
-  Device Details page the device's Bluetooth address should be listed.
-- Alternatively installing nRF Connect on your mobile device, list nearby devices, look for a device named CFX_XXXXX under the name is the MAC address.
+### Finding your cooler's MAC address
+
+You'll need the BLE MAC address of your CFX unit. There are three ways to get it:
+
+1. **Pair your phone with the cooler.** On the Device Details page, the device's
+   Bluetooth address should be listed.
+2. **Use nRF Connect** on your mobile device: list nearby devices and look for one named
+   `CFX_XXXXX`. The address shown under the name is the MAC address.
+3. **Have your ESP device log nearby BLE devices.** Add the following to your ESPHome YAML:
+
+   ```yaml
+   
+  logger:
+    level: DEBUG
+
+   esp32_ble_tracker:
+     on_ble_advertise:
+       then:
+         - lambda: |-
+             ESP_LOGD("ble_adv", "New BLE device");
+             ESP_LOGD("ble_adv", "  address: %s", x.address_str().c_str());
+             ESP_LOGD("ble_adv", "  name: %s", x.get_name().c_str());
+   ```
+
+   After installing that on your device, filter the logs for your cooler:
+
+   ```bash
+   esphome logs config.yaml | grep -C 2 -i cfx3
+   ```
+
+   (On Windows PowerShell, use `Select-String -Context 2 -Pattern cfx3` instead of `grep`.)
+
+   Thanks to [@WanderingStar](https://github.com/WanderingStar) for this suggestion!
+
+### Add the component
 
 In your ESPHome YAML:
 
