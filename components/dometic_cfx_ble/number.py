@@ -1,40 +1,42 @@
 import esphome.codegen as cg
 import esphome.config_validation as cv
+from esphome.components import number as esphome_number
 from esphome.const import (
     CONF_ID,
-    CONF_TYPE,
-    CONF_NAME,
-    CONF_MIN_VALUE,
     CONF_MAX_VALUE,
+    CONF_MIN_VALUE,
     CONF_STEP,
+    CONF_TYPE,
     CONF_UNIT_OF_MEASUREMENT,
 )
-from esphome.components import number as esphome_number
 
 from . import (
-    dometic_cfx_ble_ns,
-    DometicCfxBle,
+    _DOMETIC_CONFIGS,
     CONF_DOMETIC_CFX_BLE_ID,
     CONF_TEMPERATURE_UNIT,
-    TOPIC_TYPES,
-    validate_topic_type,
     TEMPERATURE_TOPICS,
-    _DOMETIC_CONFIGS,
+    DometicCfxBle,
+    dometic_cfx_ble_ns,
+    validate_topic_type,
 )
 
 DometicCfxBleNumber = dometic_cfx_ble_ns.class_(
     "DometicCfxBleNumber", esphome_number.Number, cg.PollingComponent
 )
 
-CONFIG_SCHEMA = esphome_number.number_schema(DometicCfxBleNumber).extend(
-    {
-        cv.Required(CONF_DOMETIC_CFX_BLE_ID): cv.use_id(DometicCfxBle),
-        cv.Required(CONF_TYPE): validate_topic_type,
-        cv.Required(CONF_MIN_VALUE): cv.float_,
-        cv.Required(CONF_MAX_VALUE): cv.float_,
-        cv.Required(CONF_STEP): cv.float_,
-    }
-).extend(cv.polling_component_schema("60s"))
+CONFIG_SCHEMA = (
+    esphome_number.number_schema(DometicCfxBleNumber)
+    .extend(
+        {
+            cv.Required(CONF_DOMETIC_CFX_BLE_ID): cv.use_id(DometicCfxBle),
+            cv.Required(CONF_TYPE): validate_topic_type,
+            cv.Required(CONF_MIN_VALUE): cv.float_,
+            cv.Required(CONF_MAX_VALUE): cv.float_,
+            cv.Required(CONF_STEP): cv.float_,
+        }
+    )
+    .extend(cv.polling_component_schema("60s"))
+)
 
 
 async def to_code(config):
@@ -46,7 +48,10 @@ async def to_code(config):
     if config[CONF_TYPE] in TEMPERATURE_TOPICS:
         parent_cfg = _DOMETIC_CONFIGS.get(str(config[CONF_DOMETIC_CFX_BLE_ID]))
         temp_unit = parent_cfg.get(CONF_TEMPERATURE_UNIT, "C") if parent_cfg else "C"
-        config = {**config, CONF_UNIT_OF_MEASUREMENT: "\u00b0F" if temp_unit == "F" else "\u00b0C"}
+        config = {
+            **config,
+            CONF_UNIT_OF_MEASUREMENT: "\u00b0F" if temp_unit == "F" else "\u00b0C",
+        }
 
     # pass range/step into the number traits
     await esphome_number.register_number(

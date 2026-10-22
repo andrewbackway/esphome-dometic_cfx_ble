@@ -1,18 +1,32 @@
 # binary_sensor.py
 import esphome.codegen as cg
 import esphome.config_validation as cv
-from esphome.const import CONF_ID, CONF_TYPE, CONF_NAME
 from esphome.components import binary_sensor as esphome_binary_sensor
+from esphome.const import CONF_ID, CONF_TYPE
 
-from . import dometic_cfx_ble_ns, DometicCfxBle, CONF_DOMETIC_CFX_BLE_ID, validate_topic_type
+from . import (
+    CONF_DOMETIC_CFX_BLE_ID,
+    DometicCfxBle,
+    dometic_cfx_ble_ns,
+    validate_topic_type,
+)
 
-DometicCfxBleBinarySensor = dometic_cfx_ble_ns.class_("DometicCfxBleBinarySensor", esphome_binary_sensor.BinarySensor, cg.PollingComponent)
+DometicCfxBleBinarySensor = dometic_cfx_ble_ns.class_(
+    "DometicCfxBleBinarySensor", esphome_binary_sensor.BinarySensor, cg.PollingComponent
+)
 
-CONFIG_SCHEMA = esphome_binary_sensor.binary_sensor_schema().extend({
-    cv.GenerateID(): cv.declare_id(DometicCfxBleBinarySensor),
-    cv.Required(CONF_DOMETIC_CFX_BLE_ID): cv.use_id(DometicCfxBle),
-    cv.Required(CONF_TYPE): validate_topic_type,
-}).extend(cv.polling_component_schema('60s'))
+CONFIG_SCHEMA = (
+    esphome_binary_sensor.binary_sensor_schema()
+    .extend(
+        {
+            cv.GenerateID(): cv.declare_id(DometicCfxBleBinarySensor),
+            cv.Required(CONF_DOMETIC_CFX_BLE_ID): cv.use_id(DometicCfxBle),
+            cv.Required(CONF_TYPE): validate_topic_type,
+        }
+    )
+    .extend(cv.polling_component_schema("60s"))
+)
+
 
 async def to_code(config):
     var = cg.new_Pvariable(config[CONF_ID])

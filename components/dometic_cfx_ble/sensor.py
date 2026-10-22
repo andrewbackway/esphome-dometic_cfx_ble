@@ -4,31 +4,37 @@ from esphome.components import sensor as esphome_sensor
 from esphome.const import (
     CONF_ID,
     CONF_TYPE,
-    CONF_NAME,
-    CONF_ACCURACY_DECIMALS,
     CONF_UNIT_OF_MEASUREMENT,
 )
 
 from . import (
-    dometic_cfx_ble_ns,
-    DometicCfxBle,
+    _DOMETIC_CONFIGS,
     CONF_DOMETIC_CFX_BLE_ID,
     CONF_TEMPERATURE_UNIT,
-    validate_topic_type,
     TEMPERATURE_TOPICS,
-    _DOMETIC_CONFIGS,
+    DometicCfxBle,
+    dometic_cfx_ble_ns,
+    validate_topic_type,
 )
 
+DometicCfxBleSensor = dometic_cfx_ble_ns.class_(
+    "DometicCfxBleSensor", esphome_sensor.Sensor, cg.PollingComponent
+)
 
-DometicCfxBleSensor = dometic_cfx_ble_ns.class_("DometicCfxBleSensor", esphome_sensor.Sensor, cg.PollingComponent)
+CONFIG_SCHEMA = (
+    esphome_sensor.sensor_schema(
+        accuracy_decimals=1,
+    )
+    .extend(
+        {
+            cv.GenerateID(): cv.declare_id(DometicCfxBleSensor),
+            cv.Required(CONF_DOMETIC_CFX_BLE_ID): cv.use_id(DometicCfxBle),
+            cv.Required(CONF_TYPE): validate_topic_type,
+        }
+    )
+    .extend(cv.polling_component_schema("60s"))
+)
 
-CONFIG_SCHEMA = esphome_sensor.sensor_schema(
-    accuracy_decimals=1,
-).extend({
-    cv.GenerateID(): cv.declare_id(DometicCfxBleSensor),
-    cv.Required(CONF_DOMETIC_CFX_BLE_ID): cv.use_id(DometicCfxBle),
-    cv.Required(CONF_TYPE): validate_topic_type,
-}).extend(cv.polling_component_schema('60s'))
 
 async def to_code(config):
     var = cg.new_Pvariable(config[CONF_ID])
@@ -37,7 +43,10 @@ async def to_code(config):
     if config[CONF_TYPE] in TEMPERATURE_TOPICS:
         parent_cfg = _DOMETIC_CONFIGS.get(str(config[CONF_DOMETIC_CFX_BLE_ID]))
         temp_unit = parent_cfg.get(CONF_TEMPERATURE_UNIT, "C") if parent_cfg else "C"
-        config = {**config, CONF_UNIT_OF_MEASUREMENT: "\u00b0F" if temp_unit == "F" else "\u00b0C"}
+        config = {
+            **config,
+            CONF_UNIT_OF_MEASUREMENT: "\u00b0F" if temp_unit == "F" else "\u00b0C",
+        }
 
     await esphome_sensor.register_sensor(var, config)
 

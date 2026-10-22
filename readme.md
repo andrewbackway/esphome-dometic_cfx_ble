@@ -1,5 +1,10 @@
 # ESPHome Dometic CFX BLE Component
 
+[![ESPHome](https://img.shields.io/badge/ESPHome-2026.04.0%2B-blue.svg)](https://esphome.io/)
+[![ESP32](https://img.shields.io/badge/ESP32-ESP--IDF-E7352C.svg)](https://docs.espressif.com/projects/esp-idf/en/latest/esp32/)
+[![License](https://img.shields.io/badge/License-MIT-blue.svg)](https://github.com/andrewbackway/esphome-dometic_cfx_ble)
+[![CI](https://github.com/andrewbackway/esphome-dometic_cfx_ble/actions/workflows/ci.yml/badge.svg)](https://github.com/andrewbackway/esphome-dometic_cfx_ble/actions/workflows/ci.yml)
+
  ESPHome External Component to control and monitor **Dometic CFX** fridges over **Bluetooth Low Energy** using the native ESP-IDF BLE stack. It implements the Dometic pub/sub protocol and exposes it as standard ESPHome entities.
 
 - Supports **single-zone (SZ)**, **single-zone + icemaker (SZI)**, and **dual-zone (DZ)** models via `product_type`.

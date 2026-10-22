@@ -1,27 +1,35 @@
 import esphome.codegen as cg
 import esphome.config_validation as cv
-from esphome.const import (
-    CONF_MAC_ADDRESS,
-    CONF_TYPE,
-    CONF_NAME,
-    CONF_ID,
-    CONF_MIN_VALUE,
-    CONF_MAX_VALUE,
-    CONF_STEP,
-    CONF_UNIT_OF_MEASUREMENT,
-    CONF_ACCURACY_DECIMALS,
-)
-from esphome.cpp_types import Component
-from esphome import automation
-from esphome.components.ble_client import CONF_BLE_CLIENT_ID
 from esphome.components import ble_client
+from esphome.components.ble_client import CONF_BLE_CLIENT_ID
+from esphome.const import (
+    CONF_ACCURACY_DECIMALS,
+    CONF_ID,
+    CONF_MAX_VALUE,
+    CONF_MIN_VALUE,
+    CONF_NAME,
+    CONF_STEP,
+    CONF_TYPE,
+    CONF_UNIT_OF_MEASUREMENT,
+)
 
-AUTO_LOAD = ["esp32_ble_tracker", "ble_client", "select", "number", "switch", "text_sensor", "binary_sensor", "sensor"]
-DEPENDENCIES = ['esp32_ble_tracker', 'ble_client']
+AUTO_LOAD = [
+    "esp32_ble_tracker",
+    "ble_client",
+    "select",
+    "number",
+    "switch",
+    "text_sensor",
+    "binary_sensor",
+    "sensor",
+]
+DEPENDENCIES = ["esp32_ble_tracker", "ble_client"]
 
 
 dometic_cfx_ble_ns = cg.esphome_ns.namespace("dometic_cfx_ble")
-DometicCfxBle = dometic_cfx_ble_ns.class_("DometicCfxBle", cg.Component, ble_client.BLEClientNode)
+DometicCfxBle = dometic_cfx_ble_ns.class_(
+    "DometicCfxBle", cg.Component, ble_client.BLEClientNode
+)
 
 CONF_PRODUCT_TYPE = "product_type"
 CONF_DOMETIC_CFX_BLE_ID = "dometic_cfx_ble_id"
@@ -132,9 +140,11 @@ CONFIG_SCHEMA = cv.Schema(
     {
         # use cv.declare_id, not cg.declare_id
         cv.GenerateID(CONF_ID): cv.declare_id(DometicCfxBle),
-        cv.Required(CONF_BLE_CLIENT_ID): cv.use_id(type("esphome.components.ble_client.ble_client.BLEClient")),
+        cv.Required(CONF_BLE_CLIENT_ID): cv.use_id(str),
         cv.Required(CONF_PRODUCT_TYPE): PRODUCT_TYPES,
-        cv.Optional(CONF_TEMPERATURE_UNIT, default="C"): cv.enum({"C": "C", "F": "F"}, upper=True),
+        cv.Optional(CONF_TEMPERATURE_UNIT, default="C"): cv.enum(
+            {"C": "C", "F": "F"}, upper=True
+        ),
     }
 ).extend(cv.COMPONENT_SCHEMA)
 
@@ -175,4 +185,3 @@ async def to_code(config):
     cg.add(var.set_product_type(config[CONF_PRODUCT_TYPE]))
     cg.add(var.set_temperature_unit(config[CONF_TEMPERATURE_UNIT]))
     _DOMETIC_CONFIGS[str(config[CONF_ID])] = config
-

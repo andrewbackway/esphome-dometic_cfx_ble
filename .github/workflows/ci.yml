@@ -1,0 +1,70 @@
+name: CI
+
+on:
+  push:
+    branches: [main]
+  pull_request:
+  workflow_dispatch:
+
+concurrency:
+  group: ci-${{ github.ref }}
+  cancel-in-progress: true
+
+permissions:
+  contents: read
+
+jobs:
+  lint:
+    name: Lint (ruff, yamllint)
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-python@v5
+        with:
+          python-version: "3.12"
+      - run: pip install ruff yamllint
+      - run: ruff check components
+      - run: ruff format --check components
+      - run: yamllint -d "{extends: relaxed, rules: {line-length: disable}}" example.yaml
+
+  validate:
+    name: Validate config (ESPHome ${{ matrix.esphome }})
+    runs-on: ubuntu-latest
+    strategy:
+      fail-fast: false
+      matrix:
+        esphome: [stable, beta, dev]
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-python@v5
+        with:
+          python-version: "3.12"
+      - name: Install ESPHome
+        run: |
+          case "${{ matrix.esphome }}" in
+            stable) pip install esphome ;;
+            beta)   pip install --pre esphome ;;
+            dev)    pip install "git+https://github.com/esphome/esphome.git@dev" ;;
+          esac
+      - run: python scripts/make_ci_config.py
+      - run: esphome config ci.yaml
+
+  compile:
+    name: Compile example (ESP32-S3, ESP-IDF)
+    runs-on: ubuntu-latest
+    needs: [lint, validate]
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-python@v5
+        with:
+          python-version: "3.12"
+      - run: pip install esphome
+      - uses: actions/cache@v4
+        with:
+          path: |
+            ~/.platformio
+            ~/.esphome
+          key: pio-${{ runner.os }}-${{ hashFiles('example.yaml') }}
+          restore-keys: pio-${{ runner.os }}-
+      - run: python scripts/make_ci_config.py
+      - run: esphome compile ci.yaml
