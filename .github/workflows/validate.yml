@@ -1,4 +1,4 @@
-name: CI
+name: Validate
 
 on:
   push:
@@ -25,7 +25,7 @@ jobs:
       - run: pip install ruff yamllint
       - run: ruff check components
       - run: ruff format --check components
-      - run: yamllint -d "{extends: relaxed, rules: {line-length: disable}}" example.yaml
+      - run: 'yamllint -d "{extends: relaxed, rules: {line-length: disable}}" example.yaml'
 
   validate:
     name: Validate config (ESPHome ${{ matrix.esphome }})
